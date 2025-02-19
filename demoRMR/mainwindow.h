@@ -20,8 +20,9 @@
 
 
 #include "robot.h"
-
+#ifndef DISABLE_JOYSTICK
 #include <QJoysticks.h>
+#endif
 namespace Ui {
 class MainWindow;
 }
@@ -81,9 +82,9 @@ private:
 
 
      QTimer *timer;
-
+#ifndef DISABLE_JOYSTICK
      QJoysticks *instance;
-
+#endif
   public slots:
      void setUiValues(double robotX,double robotY,double robotFi);
 

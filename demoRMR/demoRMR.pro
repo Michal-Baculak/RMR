@@ -15,8 +15,12 @@ greaterThan(QT_MAJOR_VERSION, 5) {
     DEFINES += USING_QT5
 }
 
-include ($$PWD/../QJoysticks-master/QJoysticks.pri)
+
 include($$PWD/../compile_defines.pri)
+!contains(DEFINES, DISABLE_JOYSTICK)
+{
+include ($$PWD/../QJoysticks-master/QJoysticks.pri)
+}
 TARGET = demoRMR
 TEMPLATE = app
 win32 {

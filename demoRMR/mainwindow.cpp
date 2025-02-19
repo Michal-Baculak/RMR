@@ -114,7 +114,7 @@ void  MainWindow::setUiValues(double robotX,double robotY,double robotFi)
 void MainWindow::on_pushButton_9_clicked() //start button
 {
     //ziskanie joystickov
-    instance = QJoysticks::getInstance();
+
 
     //tu sa nastartuju vlakna ktore citaju data z lidaru a robota
 
@@ -130,6 +130,9 @@ void MainWindow::on_pushButton_9_clicked() //start button
 #endif
 
     _robot.initAndStartRobot(ipaddress);
+
+    #ifndef DISABLE_JOYSTICK
+        instance = QJoysticks::getInstance();
     /// prepojenie joysticku s jeho callbackom... zas cez lambdu. neviem ci som to niekde spominal,ale lambdy su super. okrem toho mam este rad ternarne operatory a spolocneske hry ale to tiez nikoho nezaujima
     /// co vas vlastne zaujima? citanie komentov asi nie, inak by ste citali toto a ze tu je blbosti
     connect(
@@ -141,6 +144,7 @@ void MainWindow::on_pushButton_9_clicked() //start button
         this->_robot.setSpeedVal(forw,rot);
     }
     );
+#endif
 }
 
 void MainWindow::on_pushButton_2_clicked() //forward
