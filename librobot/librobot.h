@@ -34,16 +34,16 @@ class ROBOT_EXPORT libRobot
 {
 public:
     ~libRobot();
-    libRobot(std::string ipaddressLaser="127.0.0.1",int laserportRobot=52999, int laserportMe=5299,std::function<int(LaserMeasurement)> &lascallback=do_nothing_laser,std::string ipaddressRobot="127.0.0.1",int robotportRobot=53000, int robotportMe=5300,std::function<int(TKobukiData)> &robcallback=do_nothing_robot);
+    libRobot(std::function<int(const std::vector<LaserData>&)> &lascallback=do_nothing_laser,std::function<int(const TKobukiData&)> &robcallback=do_nothing_robot,std::string ipaddressLaser="127.0.0.1",int laserportRobot=52999, int laserportMe=5299,std::string ipaddressRobot="127.0.0.1",int robotportRobot=53000, int robotportMe=5300);
 
 
     //default functions.. please do not rewrite.. make your own callback
-    static  std::function<int(TKobukiData)> do_nothing_robot;
-    static std::function<int(LaserMeasurement)> do_nothing_laser;
+    static  std::function<int(const TKobukiData&)> do_nothing_robot;
+    static std::function<int(const std::vector<LaserData>&)> do_nothing_laser;
 
 
     void robotStart();
-    void setLaserParameters(std::string ipaddress,int laserportRobot, int laserportMe,std::function<int(LaserMeasurement)> callback )
+    void setLaserParameters(std::function<int(const std::vector<LaserData>&)> callback,std::string ipaddress="127.0.0.1",int laserportRobot=52999, int laserportMe=5299 )
     {
         laser_ip_portOut=laserportRobot;
         laser_ip_portIn=laserportMe;
@@ -51,7 +51,7 @@ public:
         laser_callback=callback;
         wasLaserSet=1;
     }
-    void setRobotParameters(std::string ipaddress,int robotportRobot, int robotportMe,std::function<int(TKobukiData)> callback )
+    void setRobotParameters(std::function<int(const TKobukiData&)> callback,std::string ipaddress="127.0.0.1",int robotportRobot=53000, int robotportMe=5300 )
     {
         robot_ip_portOut=robotportRobot;
         robot_ip_portIn=robotportMe;
@@ -65,7 +65,7 @@ public:
     void setRotationSpeed(double radpersec);
     void setArcSpeed(int mmpersec,int radius);
 #ifndef DISABLE_OPENCV
-    void setCameraParameters(std::string link,std::function<int(cv::Mat)> callback )
+    void setCameraParameters(std::function<int(const cv::Mat&)> callback,std::string link )
     {
 
         camera_link=link;
@@ -75,7 +75,7 @@ public:
 #endif
 
 #ifndef DISABLE_SKELETON
-    void setSkeletonParameters(std::string ipaddress,int skeletonportRobot, int skeletonportMe,std::function<int(skeleton)> callback )
+    void setSkeletonParameters(std::function<int(const skeleton&)> callback,std::string ipaddress="127.0.0.1",int skeletonportRobot=23432, int skeletonportMe=23432 )
        {
            skeleton_ip_portOut=skeletonportRobot;
            skeleton_ip_portIn=skeletonportMe;
@@ -85,10 +85,14 @@ public:
        }
 
 #endif
-    long double tickToMeter = 0.000085292090497737556558; // [m/tick]
-    long double b = 0.23; // wheelbase distance in meters, from kobuki manual https://yujinrobot.github.io/kobuki/doxygen/enAppendixProtocolSpecification.html
+
+       long double getTickToMeter(){return tickToMeter;}
 
 private:
+
+       long double tickToMeter = 0.000085292090497737556558; // [m/tick]
+       long double b = 0.23; // wheelbase distance in meters, from kobuki manual https://yujinrobot.github.io/kobuki/doxygen/enAppendixProtocolSpecification.html
+
      std::promise<void> ready_promise;
     std::shared_future<void> readyFuture;
     int wasLaserSet;
@@ -102,7 +106,7 @@ private:
     int laser_ip_portOut;
     int laser_ip_portIn;
     std::thread laserthreadHandle;
-    std::function<int(LaserMeasurement)> laser_callback=nullptr;
+    std::function<int(const std::vector<LaserData>&)> laser_callback=nullptr;
 
     //veci pre podvozok
     CKobuki robot;
@@ -112,7 +116,7 @@ private:
     int robot_ip_portIn;
     std::thread robotthreadHandle;
     void robotprocess();
-    std::function<int(TKobukiData)> robot_callback=nullptr;
+    std::function<int(const TKobukiData&)> robot_callback=nullptr;
 
     udp_communication laserCom;
     udp_communication robotCom;

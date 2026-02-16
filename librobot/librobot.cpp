@@ -3,8 +3,8 @@
 
 
 
-std::function<int(TKobukiData)> libRobot::do_nothing_robot=[](TKobukiData data){std::cout<<"data z kobuki "<<std::endl; return 0;};
-std::function<int(LaserMeasurement)> libRobot::do_nothing_laser=[](LaserMeasurement data){std::cout<<"data z rplidar "<<std::endl; return 0;};
+std::function<int(const TKobukiData&)> libRobot::do_nothing_robot=[](const TKobukiData &data){std::cout<<"data z kobuki "<<std::endl; return 0;};
+std::function<int(const std::vector<LaserData>&)> libRobot::do_nothing_laser=[](const std::vector<LaserData>& data){std::cout<<"data z rplidar "<<std::endl; return 0;};
 
 libRobot::~libRobot()
 {
@@ -25,11 +25,11 @@ libRobot::~libRobot()
 
 }
 
-libRobot::libRobot(std::string ipaddressLaser,int laserportRobot, int laserportMe,std::function<int(LaserMeasurement)> &lascallback,std::string ipaddressRobot,int robotportRobot, int robotportMe,std::function<int(TKobukiData)> &robcallback): wasLaserSet(0),wasRobotSet(0),wasCameraSet(0),wasSkeletonSet(0)
+libRobot::libRobot(std::function<int(const std::vector<LaserData>&)> &lascallback,std::function<int(const TKobukiData&)> &robcallback,std::string ipaddressLaser,int laserportRobot, int laserportMe,std::string ipaddressRobot,int robotportRobot, int robotportMe): wasLaserSet(0),wasRobotSet(0),wasCameraSet(0),wasSkeletonSet(0)
 {
 
-    setLaserParameters(ipaddressLaser,laserportRobot,laserportMe,lascallback);
-    setRobotParameters(ipaddressRobot,robotportRobot,robotportMe,robcallback);
+    setLaserParameters(lascallback,ipaddressLaser,laserportRobot,laserportMe);
+    setRobotParameters(robcallback,ipaddressRobot,robotportRobot,robotportMe);
     readyFuture=ready_promise.get_future();
 }
 
@@ -121,6 +121,7 @@ void libRobot::laserprocess()
     laserCom.sendMessage(command);
 
     LaserMeasurement measure;
+    std::vector<LaserData> data;
     int recvlen;
     while(1)
     {
@@ -132,9 +133,11 @@ void libRobot::laserprocess()
 
         //    std::cout<<"dostal tolkoto "<<recvlen<<std::endl;
         measure.numberOfScans=recvlen/sizeof(LaserData);
+        data.resize(measure.numberOfScans);
+        std::copy(measure.Data,measure.Data+measure.numberOfScans,data.begin());
         //tu mame data..zavolame si funkciu-- vami definovany callback
 
-        std::async(std::launch::async, [this](LaserMeasurement sensdata) { laser_callback(sensdata); },measure);
+        std::async(std::launch::async, [this](const std::vector<LaserData>& sensdata) { laser_callback(sensdata); },data);
         ///ako som vravel,toto vas nemusi zaujimat
 
     }

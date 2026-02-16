@@ -62,7 +62,7 @@ public:
     void on_pushButton_clicked();
 
 
-    int paintThisLidar(const LaserMeasurement &laserData);
+    int paintThisLidar(const std::vector<LaserData> &laserData);
 #ifndef DISABLE_OPENCV
     int paintThisCamera(const cv::Mat &cameraData);
 #endif
@@ -76,7 +76,7 @@ private:
     Ui::MainWindow *ui;
      void paintEvent(QPaintEvent *event);// Q_DECL_OVERRIDE;
      int updateLaserPicture;
-     LaserMeasurement copyOfLaserData;
+     std::vector<LaserData> copyOfLaserData;
          int datacounter;
      std::string ipaddress;
 

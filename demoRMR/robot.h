@@ -19,7 +19,7 @@ Q_DECLARE_METATYPE(cv::Mat)
 #ifndef DISABLE_SKELETON
 Q_DECLARE_METATYPE(skeleton)
 #endif
-Q_DECLARE_METATYPE(LaserMeasurement)
+Q_DECLARE_METATYPE(std::vector<LaserData>)
 class robot : public QObject
 {
     Q_OBJECT
@@ -34,7 +34,7 @@ public:
     void setSpeed(double forw,double rots);
 signals:
     void publishPosition(double x, double y, double z);
-    void publishLidar(const LaserMeasurement &lidata);
+    void publishLidar(const std::vector<LaserData> &lidata);
     #ifndef DISABLE_OPENCV
     void publishCamera(const cv::Mat &camframe);
 #endif
@@ -53,15 +53,15 @@ private:
     double rotationspeed;//omega/s
 
     ///toto su callbacky co sa sa volaju s novymi datami
-    int processThisLidar(LaserMeasurement laserData);
-    int processThisRobot(TKobukiData robotdata);
+    int processThisLidar(const std::vector<LaserData>& laserData);
+    int processThisRobot(const TKobukiData &robotdata);
     #ifndef DISABLE_OPENCV
     int processThisCamera(cv::Mat cameraData);
 #endif
 
 
     ///pomocne strukutry aby ste si trosku nerobili race conditions
-    LaserMeasurement copyOfLaserData;
+    std::vector<LaserData> copyOfLaserData;
     #ifndef DISABLE_OPENCV
     cv::Mat frame[3];
 #endif
