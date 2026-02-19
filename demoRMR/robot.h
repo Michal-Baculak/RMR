@@ -1,8 +1,9 @@
 #ifndef ROBOT_H
 #define ROBOT_H
-#include "librobot/librobot.h"
 #include <QObject>
 #include <QWidget>
+#include "librobot/librobot.h"
+#include "odometry.h"
 
 #ifndef DISABLE_OPENCV
 #include "opencv2/core/utility.hpp"
@@ -23,6 +24,7 @@ class robot : public QObject {
   Q_OBJECT
 public:
   explicit robot(QObject *parent = nullptr);
+  Odometry odom;
 
   void initAndStartRobot(std::string ipaddress);
 
