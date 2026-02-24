@@ -26,6 +26,9 @@ public:
     Odometry();
     void init(TKobukiData initData);
     bool isInitialized() { return _isInitialized; }
+    double getX() {return _posX;}
+    double getY() {return _posY;}
+    double getRot() {return _rot;}
 };
 
 #endif // ODOMETRY_H
