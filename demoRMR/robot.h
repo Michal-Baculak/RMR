@@ -44,19 +44,19 @@ signals:
   void publishSkeleton(const skeleton &skeledata);
 #endif
 private:
-  /// toto su vase premenne na vasu odometriu
-  double x;
-  double y;
-  double fi;
-  ///-----------------------------
-  /// toto su rychlosti ktore sa nastavuju setSpeedVal a posielaju v
-  /// processThisRobot
-  double forwardspeed;  // mm/s
-  double rotationspeed; // omega/s
+    /// toto su vase premenne na vasu odometriu (pouzijem vlastne, diky)
+    double x;
+    double y;
+    double fi;
+    ///-----------------------------
+    /// toto su rychlosti ktore sa nastavuju setSpeedVal a posielaju v
+    /// processThisRobot
+    double forwardspeed;  // mm/s
+    double rotationspeed; // omega/s
 
-  /// toto su callbacky co sa sa volaju s novymi datami
-  int processThisLidar(const std::vector<LaserData> &laserData);
-  int processThisRobot(const TKobukiData &robotdata);
+    /// toto su callbacky co sa sa volaju s novymi datami
+    int processThisLidar(const std::vector<LaserData> &laserData);
+    int processThisRobot(const TKobukiData &robotdata);
 #ifndef DISABLE_OPENCV
   int processThisCamera(cv::Mat cameraData);
 #endif

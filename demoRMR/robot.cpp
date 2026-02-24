@@ -27,9 +27,7 @@ void robot::initAndStartRobot(std::string ipaddress)
       robotCom.setSkeletonParameters(std::bind(&robot::processThisSkeleton,this,std::placeholders::_1));
 #endif
     ///ked je vsetko nasetovane tak to tento prikaz spusti (ak nieco nieje setnute,tak to normalne nenastavi.cize ak napr nechcete kameru,vklude vsetky info o nej vymazte)
-    robotCom.robotStart();
-
-
+      robotCom.robotStart();
 }
 
 void robot::setSpeedVal(double forw, double rots)
@@ -57,15 +55,15 @@ void robot::setSpeed(double forw, double rots)
 int robot::processThisRobot(const TKobukiData &robotdata)
 {
     ///tu mozete robit s datami z robota
+    if (!odom.isInitialized())
+        odom.init(robotdata);
 
     odom.update(robotdata);
 
     ///TU PISTE KOD... TOTO JE TO MIESTO KED NEVIETE KDE ZACAT,TAK JE TO NAOZAJ TU. AK AJ TAK NEVIETE, SPYTAJTE SA CVICIACEHO MA TU NATO STRING KTORY DA DO HLADANIA XXX
 
     ///kazdy piaty krat, aby to ui moc nepreblikavalo..
-    if(datacounter%5==0)
-    {
-
+    if (datacounter % 5 == 0) {
         ///ak nastavite hodnoty priamo do prvkov okna,ako je to na tychto zakomentovanych riadkoch tak sa moze stat ze vam program padne
         // ui->lineEdit_2->setText(QString::number(robotdata.EncoderRight));
         //ui->lineEdit_3->setText(QString::number(robotdata.EncoderLeft));
@@ -78,7 +76,6 @@ int robot::processThisRobot(const TKobukiData &robotdata)
         ///toto neodporucam na nejake komplikovane struktury.signal slot robi kopiu dat. radsej vtedy posielajte
         /// prazdny signal a slot bude vykreslovat strukturu (vtedy ju musite mat samozrejme ako member premmennu v mainwindow.ak u niekoho najdem globalnu premennu,tak bude cistit bludisko zubnou kefkou.. kefku dodam)
         /// vtedy ale odporucam pouzit mutex, aby sa vam nestalo ze budete pocas vypisovania prepisovat niekde inde
-
     }
     ///---tu sa posielaju rychlosti do robota... vklude zakomentujte ak si chcete spravit svoje
     if(useDirectCommands==0)

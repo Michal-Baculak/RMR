@@ -14,13 +14,18 @@ private:
     unsigned short _encoderRightPrev;
     unsigned short _timestampPrev;
 
-    //TODO:
+    // We will use these magic constants
     static constexpr double _wheelBase = 0.230; //razvor kolies v metroch
     static constexpr double _tickToMeter = 0.000085292090497737556558;
+
+    bool _isInitialized = false;
 
 public:
     void update(TKobukiData robotData);
     void resetPos(double x, double y);
+    Odometry();
+    void init(TKobukiData initData);
+    bool isInitialized() { return _isInitialized; }
 };
 
 #endif // ODOMETRY_H
