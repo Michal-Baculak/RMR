@@ -6,6 +6,7 @@
 // #include<arpa/inet.h>
 // #include<unistd.h>
 // #include<sys/socket.h>
+#include <QStandardItemModel>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -68,21 +69,30 @@ private slots:
 
   private:
   robot _robot;
-  //--skuste tu nic nevymazat... pridavajte co chcete, ale pri odoberani by sa
-  // mohol stat nejaky drobny problem, co bude vyhadzovat chyby
   Ui::MainWindow *ui;
-  void paintEvent(QPaintEvent *event); // Q_DECL_OVERRIDE;
   int updateLaserPicture;
   std::vector<LaserData> copyOfLaserData;
   int datacounter;
   std::string ipaddress;
-
   QTimer *timer;
+  QStandardItemModel *listViewItemModel;
+
 #ifndef DISABLE_JOYSTICK
   QJoysticks *instance;
 #endif
-public slots:
+
+  //--skuste tu nic nevymazat... pridavajte co chcete, ale pri odoberani by sa
+  // mohol stat nejaky drobny problem, co bude vyhadzovat chyby
+  void paintEvent(QPaintEvent *event); // Q_DECL_OVERRIDE;
+  void addSetPointToListView(int x, int y);
+  void initializeSetPointListView();
+  void removeSelectedSetPoint();
+
+  public slots:
   void setUiValues(double robotX, double robotY, double robotFi);
+
+  protected:
+  bool eventFilter(QObject *watched, QEvent *event) override;
 };
 
 #endif // MAINWINDOW_H

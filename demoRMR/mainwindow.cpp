@@ -1,7 +1,10 @@
 #include "mainwindow.h"
-#include "ui_mainwindow.h"
+#include <QEvent>
+#include <QMouseEvent>
 #include <QPainter>
+#include "ui_mainwindow.h"
 #include <math.h>
+
 ///Lukrativne ID: Baculak_Ondruska
 
 
@@ -25,8 +28,15 @@ MainWindow::MainWindow(QWidget *parent) :
 
 
     datacounter=0;
+    ui->widget->installEventFilter(this);
+    initializeSetPointListView();
+}
 
-
+void MainWindow::initializeSetPointListView()
+{
+    listViewItemModel = new QStandardItemModel(this);
+    ui->setPointListView->setModel(listViewItemModel);
+    addSetPointToListView(1, 0);
 }
 
 MainWindow::~MainWindow()
@@ -248,4 +258,33 @@ void MainWindow::on_IPComboBox_currentIndexChanged(int index)
         break;
     }
     std::cout << "ipaddress is now: " << ipaddress << std::endl;
+}
+bool MainWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == ui->widget && event->type() == QEvent::MouseButtonPress) {
+        QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(event);
+        if (mouseEvent->button() == Qt::LeftButton) {
+            std::cout << "at position: " << mouseEvent->pos().x() << "," << mouseEvent->pos().y()
+                      << std::endl;
+        }
+    }
+    return QMainWindow::eventFilter(watched, event);
+}
+
+void MainWindow::addSetPointToListView(int x, int y)
+{
+    QString text = QString("(%1, %2)").arg(x).arg(y);
+
+    QStandardItem *item = new QStandardItem(text);
+
+    // Store real data separately for later access (storing to Controller queue)
+    item->setData(x, Qt::UserRole + 1);
+    item->setData(y, Qt::UserRole + 2);
+
+    listViewItemModel->appendRow(item);
+}
+
+void MainWindow::removeSelectedSetPoint()
+{
+    QModelIndex qIndex = ui->setPointListView->currentIndex();
 }
