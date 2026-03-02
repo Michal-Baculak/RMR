@@ -307,3 +307,10 @@ void MainWindow::setSetpoint(double x, double y)
     std::string labelString = "(" + std::to_string(x) + ", " + std::to_string(y) + ")";
     ui->setpointLabel->setText(QString(labelString.c_str()));
 }
+
+void MainWindow::on_pushButton_10_clicked()
+{
+    //TODO: set the setpoint to the PathTracker and execute
+    //TODO: later we only set the setpoint to the PathPlanner, let it compute the trajectory,
+    // save the trajectory to PathTracker and then execute the sequence.
+}
