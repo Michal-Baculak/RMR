@@ -200,14 +200,11 @@
        </widget>
       </item>
       <item>
-       <widget class="QLabel" name="label_4">
+       <widget class="QLabel" name="setpointLabel">
         <property name="text">
-         <string>Setpoint Queue</string>
+         <string>Setpoint: (1, 0)</string>
         </property>
        </widget>
-      </item>
-      <item>
-       <widget class="QListView" name="setPointListView"/>
       </item>
       <item>
        <widget class="QPushButton" name="pushButton_10">

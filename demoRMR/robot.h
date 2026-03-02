@@ -4,6 +4,7 @@
 #include <QWidget>
 #include "librobot/librobot.h"
 #include "odometry.h"
+#include "path_tracker.h"
 
 #ifndef DISABLE_OPENCV
 #include "opencv2/core/utility.hpp"
@@ -25,6 +26,7 @@ class robot : public QObject {
 public:
   explicit robot(QObject *parent = nullptr);
   Odometry odom;
+  PathTracker path_tracker;
 
   void initAndStartRobot(std::string ipaddress);
 

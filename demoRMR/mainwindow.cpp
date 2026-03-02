@@ -29,14 +29,8 @@ MainWindow::MainWindow(QWidget *parent) :
 
     datacounter=0;
     ui->widget->installEventFilter(this);
-    initializeSetPointListView();
-}
 
-void MainWindow::initializeSetPointListView()
-{
-    listViewItemModel = new QStandardItemModel(this);
-    ui->setPointListView->setModel(listViewItemModel);
-    addSetPointToListView(1, 0);
+    _robot.path_tracker.setSetpoint(_setpointX, _setpointY);
 }
 
 MainWindow::~MainWindow()
@@ -72,7 +66,6 @@ void MainWindow::paintEvent(QPaintEvent *event)
         {
             updateLaserPicture=0;
 
-
             pero.setColor(Qt::red);//farba je zelena
             painter.setPen(pero);
             painter.drawEllipse(QPoint(rect.width()/2+rect.topLeft().x(), rect.height()/2+rect.topLeft().y()),15,15);
@@ -83,12 +76,19 @@ void MainWindow::paintEvent(QPaintEvent *event)
             //   std::cout<<copyOfLaserData.numberOfScans<<std::endl;
             for(const auto &k :copyOfLaserData)
             {
-                int dist=k.scanDistance/20; ///vzdialenost nahodne predelena 20 aby to nejako vyzeralo v okne.. zmen podla uvazenia
-                int xp=rect.width()-(rect.width()/2+dist*2*sin((360.0-k.scanAngle)*3.14159/180.0))+rect.topLeft().x(); //prepocet do obrazovky
-                int yp=rect.height()-(rect.height()/2+dist*2*cos((360.0-k.scanAngle)*3.14159/180.0))+rect.topLeft().y();//prepocet do obrazovky
+                int dist = k.scanDistance / 1000
+                           * PIXELS_PER_METER; // vzdialenost cielavedome predelena
+                int xp = rect.width()
+                         - (rect.width() / 2 + dist * sin((360.0 - k.scanAngle) * 3.14159 / 180.0))
+                         + rect.topLeft().x(); //prepocet do obrazovky
+                int yp = rect.height()
+                         - (rect.height() / 2 + dist * cos((360.0 - k.scanAngle) * 3.14159 / 180.0))
+                         + rect.topLeft().y(); //prepocet do obrazovky
                 if(rect.contains(xp,yp))//ak je bod vo vnutri nasho obdlznika tak iba vtedy budem chciet kreslit
                     painter.drawEllipse(QPoint(xp, yp),2,2);
             }
+
+            //TODO: setpoint drawing
         }
     }
 #ifndef DISABLE_SKELETON
@@ -264,27 +264,46 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
     if (watched == ui->widget && event->type() == QEvent::MouseButtonPress) {
         QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(event);
         if (mouseEvent->button() == Qt::LeftButton) {
-            std::cout << "at position: " << mouseEvent->pos().x() << "," << mouseEvent->pos().y()
-                      << std::endl;
+            std::cout << "Widget left-clicked at position: " << mouseEvent->pos().x() << ","
+                      << mouseEvent->pos().y() << std::endl;
+            auto realPos = widgetXYtoWorldXY(mouseEvent->pos().x(), mouseEvent->pos().y());
+            setSetpoint(realPos.first, realPos.second);
+            std::cout << "real position: (" << _setpointX << ", " << _setpointY << ")" << std::endl;
         }
     }
     return QMainWindow::eventFilter(watched, event);
 }
 
-void MainWindow::addSetPointToListView(int x, int y)
+std::pair<double, double> MainWindow::widgetXYtoWorldXY(double x, double y)
 {
-    QString text = QString("(%1, %2)").arg(x).arg(y);
+    // get widget geometry
+    QRect rect = ui->widget->geometry();
+    int widgetCenterX = rect.width() / 2;
+    int widgetCenterY = rect.height() / 2;
 
-    QStandardItem *item = new QStandardItem(text);
+    // transform y to start from bottom-left:
+    y = rect.height() - y;
+    int dx = x - widgetCenterX;
+    int dy = y - widgetCenterY;
+    double r = sqrt(dx * dx + dy * dy);
+    double phi = atan2(dy, dx);
 
-    // Store real data separately for later access (storing to Controller queue)
-    item->setData(x, Qt::UserRole + 1);
-    item->setData(y, Qt::UserRole + 2);
+    //convert pixel values to real values:
+    phi += _robot.odom.getRot() - PI / 2;
+    r /= PIXELS_PER_METER; //random val used by everyone
 
-    listViewItemModel->appendRow(item);
+    double deltaX = r * cos(phi);
+    double deltaY = r * sin(phi);
+
+    double realX = _robot.odom.getX() + deltaX;
+    double realY = _robot.odom.getY() + deltaY;
+    return std::pair<double, double>(realX, realY);
 }
 
-void MainWindow::removeSelectedSetPoint()
+void MainWindow::setSetpoint(double x, double y)
 {
-    QModelIndex qIndex = ui->setPointListView->currentIndex();
+    _setpointX = x;
+    _setpointY = y;
+    std::string labelString = "(" + std::to_string(x) + ", " + std::to_string(y) + ")";
+    ui->setpointLabel->setText(QString(labelString.c_str()));
 }

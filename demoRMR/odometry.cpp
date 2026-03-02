@@ -16,7 +16,7 @@ void Odometry::update(TKobukiData robotData)
     _encoderLeftPrev = robotData.EncoderLeft;
     _encoderRightPrev = robotData.EncoderRight;
 
-    std::cout << "deltaLeft: " << deltaLeft << ", deltaRight: " << deltaRight << std::endl;
+    // std::cout << "deltaLeft: " << deltaLeft << ", deltaRight: " << deltaRight << std::endl;
 
     unsigned short deltaT = robotData.timestamp - _timestampPrev;
     _timestampPrev = robotData.timestamp;
@@ -34,7 +34,7 @@ void Odometry::update(TKobukiData robotData)
     _posX += deltaDist * cos(_rot);
     _posY += deltaDist * sin(_rot);
 
-    std::cout << "Odometry: x = " << _posX << ", y = " << _posY << ", rot = " << _rot << std::endl;
+    // std::cout << "Odometry: x = " << _posX << ", y = " << _posY << ", rot = " << _rot << std::endl;
 }
 
 void Odometry::init(TKobukiData initData)

@@ -6,11 +6,11 @@
 // #include<arpa/inet.h>
 // #include<unistd.h>
 // #include<sys/socket.h>
-#include <QStandardItemModel>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <utility>
 #include <vector>
 
 // #include "ckobuki.h"
@@ -43,7 +43,8 @@ public:
   explicit MainWindow(QWidget *parent = 0);
   ~MainWindow();
 
-private slots:
+  const double PIXELS_PER_METER = 100.0;
+  private slots:
   void on_pushButton_9_clicked();
 
   void on_pushButton_2_clicked();
@@ -75,7 +76,10 @@ private slots:
   int datacounter;
   std::string ipaddress;
   QTimer *timer;
-  QStandardItemModel *listViewItemModel;
+  double _setpointX = 1;
+  double _setpointY = 0;
+
+  void setSetpoint(double x, double y);
 
 #ifndef DISABLE_JOYSTICK
   QJoysticks *instance;
@@ -84,9 +88,7 @@ private slots:
   //--skuste tu nic nevymazat... pridavajte co chcete, ale pri odoberani by sa
   // mohol stat nejaky drobny problem, co bude vyhadzovat chyby
   void paintEvent(QPaintEvent *event); // Q_DECL_OVERRIDE;
-  void addSetPointToListView(int x, int y);
-  void initializeSetPointListView();
-  void removeSelectedSetPoint();
+  std::pair<double, double> widgetXYtoWorldXY(double x, double y);
 
   public slots:
   void setUiValues(double robotX, double robotY, double robotFi);
