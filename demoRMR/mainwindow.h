@@ -68,6 +68,8 @@ public:
 #endif
   void on_IPComboBox_currentIndexChanged(int index);
 
+  void on_pushButton_10_clicked();
+
   private:
   robot _robot;
   Ui::MainWindow *ui;
