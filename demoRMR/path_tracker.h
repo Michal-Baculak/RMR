@@ -3,6 +3,8 @@
 
 // lets go bitches
 
+class Odometry;
+
 class PathTracker
 {
     double _setpointX = 0;
@@ -12,6 +14,7 @@ public:
     void setSetpoint(double x, double y);
     double getSetpointX() { return _setpointX; }
     double getSetpointY() { return _setpointY; }
+    void update(Odometry odom);
 };
 
 #endif // PATH_TRACKER_H
