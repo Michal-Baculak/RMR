@@ -9,10 +9,11 @@ private:
     double _posX;
     double _posY;
     double _rot;
-    double _vel;
+    double _rotPrev;
 
     unsigned short _encoderLeftPrev;
     unsigned short _encoderRightPrev;
+    signed short _gyroAnglePrev;
     uint32_t _timestampPrev;
 
     // We will use these magic constants
