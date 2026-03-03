@@ -9,10 +9,11 @@ private:
     double _posX;
     double _posY;
     double _rot;
+    double _vel;
 
     unsigned short _encoderLeftPrev;
     unsigned short _encoderRightPrev;
-    unsigned short _timestampPrev;
+    uint32_t _timestampPrev;
 
     // We will use these magic constants
     static constexpr double _wheelBase = 0.230; //razvor kolies v metroch
