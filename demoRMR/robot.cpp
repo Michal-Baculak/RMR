@@ -102,9 +102,17 @@ int robot::processThisLidar(const std::vector<LaserData>& laserData)
 
     copyOfLaserData=laserData;
 
+    if(!lidarOdom.isInitialized())
+        lidarOdom.init(copyOfLaserData);
+
     //tu mozete robit s datami z lidaru.. napriklad najst prekazky, zapisat do mapy. naplanovat ako sa prekazke vyhnut.
     // ale nic vypoctovo narocne - to iste vlakno ktore cita data z lidaru
    // updateLaserPicture=1;
+    lidarOdom.update(copyOfLaserData);
+    //TODO: odometry fusion
+    // emit publishPosition(lidarOdom.getX(),
+    //                      lidarOdom.getY(),
+    //                      lidarOdom.getRot()/PI*180);
     emit publishLidar(copyOfLaserData);
    // update();//tento prikaz prinuti prekreslit obrazovku.. zavola sa paintEvent funkcia
 

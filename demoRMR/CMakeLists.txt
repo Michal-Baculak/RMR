@@ -21,6 +21,8 @@ qt_add_executable(${PROJECT_NAME} WIN32
     odometry.h
     path_tracker.h
     path_tracker.cpp
+    lidarodometry.h
+    lidarodometry.cpp
 )
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE ROBOT_LIBRARY)
