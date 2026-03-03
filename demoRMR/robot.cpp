@@ -60,6 +60,14 @@ int robot::processThisRobot(const TKobukiData &robotdata)
 
     odom.update(robotdata);
 
+    if (path_tracker.isRunning()) {
+        path_tracker.update(odom);
+        auto command = path_tracker.getCommand();
+        std::cout << "Setting v to " << command.first << " m/s and w to " << command.second
+                  << "rad/s" << std::endl;
+        setSpeed(command.first * 1000, command.second);
+    }
+
     ///TU PISTE KOD... TOTO JE TO MIESTO KED NEVIETE KDE ZACAT,TAK JE TO NAOZAJ TU. AK AJ TAK NEVIETE, SPYTAJTE SA CVICIACEHO MA TU NATO STRING KTORY DA DO HLADANIA XXX
 
     ///kazdy piaty krat, aby to ui moc nepreblikavalo..
