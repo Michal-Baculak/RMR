@@ -93,7 +93,7 @@ public:
   std::pair<double, double> widgetXYtoWorldXY(double x, double y);
 
   public slots:
-  void setUiValues(double robotX, double robotY, double robotFi);
+  void setUiValues(double robotX, double robotY, double robotFi, double omega, double v);
 
   protected:
   bool eventFilter(QObject *watched, QEvent *event) override;

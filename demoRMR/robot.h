@@ -41,7 +41,7 @@ public:
   // tato funkcia fyzicky posiela hodnoty do robota
   void setSpeed(double forw, double rots);
 signals:
-  void publishPosition(double x, double y, double z);
+  void publishPosition(double x, double y, double z, double omega, double v);
   void publishLidar(const std::vector<LaserData> &lidata);
 #ifndef DISABLE_OPENCV
   void publishCamera(const cv::Mat &camframe);

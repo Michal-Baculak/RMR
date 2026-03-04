@@ -10,6 +10,8 @@ private:
     double _posY;
     double _rot;
     double _rotPrev;
+    double _omega;
+    double _v;
 
     unsigned short _encoderLeftPrev;
     unsigned short _encoderRightPrev;
@@ -31,6 +33,8 @@ public:
     double getX() {return _posX;}
     double getY() {return _posY;}
     double getRot() {return _rot;}
+    double getOmega() {return _omega;}
+    double getV() {return _v;}
 };
 
 #endif // ODOMETRY_H
