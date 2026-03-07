@@ -14,7 +14,7 @@ void PathTracker::update(Odometry odom)
     double dx = setpointX_ - odom.getX();
     double dy = setpointY_ - odom.getY();
     double rho = sqrt(dx * dx + dy * dy);
-    double alpha = -theta + atan2(dy, dx);
+    double alpha = wrap(-theta + atan2(dy, dx));
     double beta = -theta - alpha;
 
     double v = k_rho_ * rho;
@@ -121,4 +121,12 @@ void PathTracker::stop()
 bool PathTracker::isRunning()
 {
     return is_running_;
+}
+
+double PathTracker::wrap(double x)
+{
+    x = fmod(x + PI, 2 * PI);
+    if (x < 0)
+        x += 2 * PI;
+    return x - PI;
 }
