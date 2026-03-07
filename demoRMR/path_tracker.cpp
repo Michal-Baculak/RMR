@@ -20,11 +20,85 @@ void PathTracker::update(Odometry odom)
     double v = k_rho_ * rho;
     double w = k_alpha_ * alpha + k_beta_ * beta;
 
-    //calculated commands
+    std::cout << "***************Position Controller***************" << std::endl;
+    std::cout << "P controller suggests v = " << v << ", w = " << w << std::endl;
+
+    if (rho < POSITION_EPSILON) {
+        stop();
+        std::cout << "Position error " << rho << "is under tolerance: " << POSITION_EPSILON
+                  << ", stopping,..." << std::endl;
+        return;
+    }
+
+    // determine path curvature - we want to preserve that and only adjust speed
+    double k = w / v; // v is never zero here
+    std::cout << "curvature of desired path is k = " << k << std::endl;
+
+    // apply velocity profiling when far from target
+    if (rho > REGULATION_ZONE_DIST) {
+        // profile velocity
+        double profiled_vel = getProfiledVelocity(rho, REGULATION_ZONE_DIST);
+        if (profiled_vel > v)
+            v = profiled_vel;
+    } else
+        std::cout << "Near target, applying precise position regulation..." << std::endl;
+
+    // calculate suggested acceleration
+    double dt = 0.01; // no idea how to calculate this accurately...
+    double a = (v - command_v_) / dt;
+    double epsilon = (w - command_w_) / dt;
+
+    // clamp the acceleration and velocity
+    double a_clamped = std::clamp(a, -ACCELERATION_MAX, ACCELERATION_MAX);
+    double epsilon_clamped = std::clamp(epsilon,
+                                        -ANGULAR_ACCELERATION_MAX,
+                                        ANGULAR_ACCELERATION_MAX);
+
+    // new speed command
+    v = command_v_ + dt * a_clamped; // v is still not zero here!
+    w = command_w_ + dt * epsilon_clamped;
+
+    std::cout << "smooth next velocity is v = " << v << ", w = " << w << std::endl;
+
+    // clamped speed commands
     command_v_ = std::clamp(v, -V_MAX, V_MAX);
     command_w_ = std::clamp(w, -W_MAX, W_MAX);
 
-    std::cout << "Calculated command: v=" << command_v_ << ", w=" << command_w_ << std::endl;
+    std::cout << "after clamping: v = " << command_v_ << ", w  = " << command_w_ << std::endl;
+
+    // curvature adjust commands
+    if (k == 0)
+        // this means w = 0, we dont need cross adjusting
+        return;
+
+    std::cout << "curvature after clamping speeds is " << command_w_ / command_v_ << std::endl;
+    if (abs(command_w_ / command_v_) < abs(k)) {
+        // v is relatively higher, make it match the curvature:
+        // k = w/v
+        // v = w/k
+        std::cout << "Adjusting velocity to match curvature..." << std::endl;
+        command_v_ = command_w_ / k;
+    }
+
+    if (abs(command_w_ / command_v_) > abs(k)) {
+        // w is relatively higher, lower it
+        // k = w/v
+        // w = k*v
+        std::cout << "Adjusting angular velocity to match curvature..." << std::endl;
+        command_w_ = command_v_ * k;
+    }
+}
+
+double PathTracker::getProfiledVelocity(double dist, double regulationZoneDist)
+{
+    // assume linearly increaing speed -> max speed -> linearly decreasing speed up to regulationZoneDist
+    // we obtain this velocity by answering the question: how fast can we go, so that we can safely stop withing the distance of (dist-regulationZoneDist)?
+    double s = dist - regulationZoneDist;
+
+    if (s < 0)
+        return 0;
+    double v = sqrt(2 * s * ACCELERATION_MAX);
+    return std::min(v, V_MAX); // clamp to V_MAX
 }
 
 std::pair<double, double> PathTracker::getCommand()
@@ -40,6 +114,8 @@ void PathTracker::start()
 void PathTracker::stop()
 {
     is_running_ = false;
+    command_v_ = 0;
+    command_w_ = 0;
 }
 
 bool PathTracker::isRunning()
