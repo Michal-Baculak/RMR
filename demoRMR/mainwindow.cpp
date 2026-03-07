@@ -304,7 +304,7 @@ void MainWindow::setSetpoint(double x, double y)
 {
     _setpointX = x;
     _setpointY = y;
-    std::string labelString = "(" + std::to_string(x) + ", " + std::to_string(y) + ")";
+    std::string labelString = "Setpoint: (" + std::to_string(x) + ", " + std::to_string(y) + ")";
     ui->setpointLabel->setText(QString(labelString.c_str()));
 }
 
@@ -315,4 +315,10 @@ void MainWindow::on_pushButton_10_clicked()
     // save the trajectory to PathTracker and then execute the sequence.
     _robot.path_tracker.setSetpoint(_setpointX, _setpointY);
     _robot.path_tracker.start();
+}
+
+void MainWindow::on_pushButton_11_clicked()
+{
+    _robot.path_tracker.stop();
+    _robot.setSpeed(0, 0);
 }
