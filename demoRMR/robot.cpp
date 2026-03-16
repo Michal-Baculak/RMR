@@ -109,7 +109,7 @@ int robot::processThisLidar(const std::vector<LaserData>& laserData)
 {
 
     copyOfLaserData=laserData;
-
+    odom.compensateLidarScan(copyOfLaserData);
     // ******************************** LiDAR Odometry ****************************************
     // if(!lidarOdom.isInitialized())
     //     lidarOdom.init(copyOfLaserData);

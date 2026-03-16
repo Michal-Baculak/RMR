@@ -2,6 +2,11 @@
 #define ODOMETRY_H
 
 #include "librobot/CKobuki.h"
+#include "librobot/rplidar.h"
+#include <utility>
+#include <vector>
+
+struct Pose;
 
 class Odometry
 {
@@ -24,6 +29,9 @@ private:
 
     bool _isInitialized = false;
 
+    std::vector<std::pair<uint32_t, Pose>> _poseStack; // positions are saved latest
+    const size_t POSE_STACK_MAX_SIZE = 5;              // Position -> 40Hz, LiDAR -> ??Hz
+
 public:
     void update(TKobukiData robotData);
     void resetPos(double x, double y);
@@ -35,6 +43,16 @@ public:
     double getRot() {return _rot;}
     double getOmega() {return _omega;}
     double getV() {return _v;}
+    void compensateLidarScan(std::vector<LaserData> &laserData);
+    Pose interpolatePosition(Pose p1, Pose p2, uint32_t t1, uint32_t t2, uint32_t t);
+    Pose extrapolatePosition(Pose p0, double v, double w, double t);
+};
+
+struct Pose
+{
+    double x;
+    double y;
+    double phi;
 };
 
 #endif // ODOMETRY_H

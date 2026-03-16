@@ -1,4 +1,5 @@
 #include "odometry.h"
+#include "utility.h"
 #include <iostream>
 #include <math.h>
 #include <stdint.h>
@@ -63,6 +64,11 @@ void Odometry::update(TKobukiData robotData)
         _v = deltaDist / deltaT;
     }
 
+    // keep stack of positions for LiDAR movement compensation
+    _poseStack.push_back({robotData.synctimestamp, {_posX, _posY, _rot}});
+    if (_poseStack.size() > POSE_STACK_MAX_SIZE)
+        _poseStack.erase(_poseStack.begin());
+
     std::cout << robotData.synctimestamp << ", " << deltaT << std::endl;
 }
 
@@ -79,4 +85,101 @@ void Odometry::init(TKobukiData initData)
     _isInitialized = true;
 
     std::cout << "Angle init rot: " << _rot << ", rotPrev: " << _rotPrev << ", gyroPrev: " << _gyroAnglePrev << std::endl;;
+}
+
+void Odometry::compensateLidarScan(std::vector<LaserData> &laserData)
+{
+    std::cout << "Printing first laser beam timestamp: " << laserData.begin()->timestamp
+              << std::endl;
+    for (auto &laserBeam : laserData) {
+        // find the two saved poses, betweeen which the beam was executed
+        uint32_t min_diff = 0 - 1;
+        size_t min_idx = 0;
+        for (size_t i = 0, stack_size = _poseStack.size(); i < stack_size; ++i) {
+            uint32_t diff = laserBeam.timestamp - _poseStack.at(i).first;
+            if (diff >= min_diff)
+                continue;
+            min_diff = diff;
+            min_idx = i;
+        }
+
+        // min_idx is the index of last saved pose before the laser returned
+        // we need one more pose to interpolate.
+        Pose laser_origin;
+        if (min_idx >= _poseStack.size() - 1) {
+            // calculate pose based on velocity
+            auto last_pose_pair = _poseStack.at(_poseStack.size() - 1);
+            uint32_t last_timestamp = last_pose_pair.first;
+            Pose last_pose = last_pose_pair.second;
+            uint32_t deltaT = laserBeam.timestamp - last_timestamp;
+            double dt = deltaT / 1000000.0; // -ish? (TODO)
+            laser_origin = extrapolatePosition(last_pose, _v, _omega, dt);
+        } else {
+            // interpolate pose
+            size_t next_idx = min_idx + 1;
+            // std::cout << "interpolating laser origin position between indices " << min_idx
+            //           << " and " << next_idx << std::endl;
+            laser_origin = interpolatePosition(_poseStack.at(min_idx).second,
+                                               _poseStack.at(next_idx).second,
+                                               _poseStack.at(min_idx).first,
+                                               _poseStack.at(next_idx).first,
+                                               laserBeam.timestamp);
+        }
+
+        // calculate the laser point position w.r.t. the origin pose
+        double laser_angle = laser_origin.phi - laserBeam.scanAngle * PI / 180;
+        double laser_x = laser_origin.x + laserBeam.scanDistance * cos(laser_angle);
+        double laser_y = laser_origin.y + laserBeam.scanDistance * sin(laser_angle);
+
+        // recalculate w.r.t to current position
+        double beam_dx = laser_x - _posX;
+        double beam_dy = laser_y - _posY;
+        double beam_dist = sqrt(beam_dx * beam_dx + beam_dy * beam_dy);
+        double beam_angle = atan2(beam_dy, beam_dx) - _rot;
+
+        // modify beam
+        laserBeam.scanAngle = -beam_angle * 180 / PI;
+        laserBeam.scanDistance = beam_dist;
+        //std::cout << "min index for this laser beam: " << min_idx << std::endl;
+    }
+}
+
+Pose Odometry::interpolatePosition(Pose p1, Pose p2, uint32_t t1, uint32_t t2, uint32_t t)
+{
+    Pose output;
+    double progress = static_cast<double>(t - t1) / (t2 - t1);
+    output.x = p1.x + (p2.x - p1.x) * progress;
+    output.y = p1.y + (p2.y - p1.y) * progress;
+    output.phi = p1.phi + (p2.phi - p1.phi) * progress;
+    output.phi = utility::wrap(output.phi);
+    return output;
+}
+
+Pose Odometry::extrapolatePosition(Pose p0, double v, double w, double t)
+{
+    Pose output;
+    double d_phi = w * t;
+
+    if (w == 0) {
+        // only linear motion
+        output.phi = p0.phi;
+        output.x = p0.x + v * t * cos(p0.phi);
+        output.y = p0.y + v * t * sin(p0.phi);
+        return output;
+    }
+
+    // w is non-zero here
+    double r = v / w;
+
+    // this math is taken from prednaska (kudos)
+    double ds = 2 * r * sin(d_phi / 2);
+
+    double dx = ds * cos(d_phi / 2 + p0.phi);
+    double dy = ds * sin(d_phi / 2 + p0.phi);
+
+    output.x = p0.x + dx;
+    output.y = p0.y + dy;
+    output.phi = utility::wrap(p0.phi + d_phi);
+
+    return output;
 }
