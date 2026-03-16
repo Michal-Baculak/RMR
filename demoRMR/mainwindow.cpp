@@ -324,3 +324,8 @@ void MainWindow::on_pushButton_11_clicked()
     _robot.path_tracker.stop();
     _robot.setSpeed(0, 0);
 }
+
+void MainWindow::on_pushButton_12_clicked()
+{
+    _robot.plotMap();
+}

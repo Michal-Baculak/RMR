@@ -1,4 +1,6 @@
 #include "robot.h"
+#include "opencv2/core/hal/interface.h"
+#include "opencv2/opencv.hpp"
 
 robot::robot(QObject *parent) : QObject(parent)
 {
@@ -28,6 +30,8 @@ void robot::initAndStartRobot(std::string ipaddress)
 #endif
     ///ked je vsetko nasetovane tak to tento prikaz spusti (ak nieco nieje setnute,tak to normalne nenastavi.cize ak napr nechcete kameru,vklude vsetky info o nej vymazte)
       robotCom.robotStart();
+
+      mapper.init();
 }
 
 void robot::setSpeedVal(double forw, double rots)
@@ -107,9 +111,11 @@ int robot::processThisRobot(const TKobukiData &robotdata)
 /// vola sa ked dojdu nove data z lidaru
 int robot::processThisLidar(const std::vector<LaserData>& laserData)
 {
-
     copyOfLaserData=laserData;
-    odom.compensateLidarScan(copyOfLaserData);
+    std::vector<XYQPoint> xyPointCloud;
+    odom.compensateLidarScan(copyOfLaserData, xyPointCloud);
+    mapper.update(odom, copyOfLaserData);
+    plotMap();
     // ******************************** LiDAR Odometry ****************************************
     // if(!lidarOdom.isInitialized())
     //     lidarOdom.init(copyOfLaserData);
@@ -132,17 +138,37 @@ int robot::processThisLidar(const std::vector<LaserData>& laserData)
 
 
     return 0;
-
 }
 
-  #ifndef DISABLE_OPENCV
+cv::Mat getMatFromMap(Mapper mapper)
+{
+    cv::Mat mat_matrix;
+    size_t map_size = mapper.getMapSize();
+    mat_matrix.create(map_size, map_size, 0);
+    for (size_t i = 0; i < map_size; ++i) {
+        for (size_t j = 0; j < map_size; ++j) {
+            mat_matrix.at<uint8_t>(i, j) = mapper.getMapElement(i, j);
+        }
+    }
+    cv::Mat rotated;
+    cv::rotate(mat_matrix, rotated, cv::ROTATE_90_COUNTERCLOCKWISE);
+    cv::Mat resized;
+    cv::resize(rotated, resized, cv::Size(map_size * 2, map_size * 2));
+
+    return resized;
+}
+
+void robot::plotMap()
+{
+    cv::imshow("Map", getMatFromMap(mapper));
+}
+#ifndef DISABLE_OPENCV
 ///toto je calback na data z kamery, ktory ste podhodili robotu vo funkcii initAndStartRobot
 /// vola sa ked dojdu nove data z kamery
 int robot::processThisCamera(cv::Mat cameraData)
 {
-
-    cameraData.copyTo(frame[(actIndex+1)%3]);//kopirujem do nasej strukury
-    actIndex=(actIndex+1)%3;//aktualizujem kde je nova fotka
+    cameraData.copyTo(frame[(actIndex + 1) % 3]); //kopirujem do nasej strukury
+    actIndex = (actIndex + 1) % 3;                //aktualizujem kde je nova fotka
 
     emit publishCamera(frame[actIndex]);
     return 0;

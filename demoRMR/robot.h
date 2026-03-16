@@ -3,10 +3,10 @@
 #include <QObject>
 #include <QWidget>
 #include "librobot/librobot.h"
+#include "lidarodometry.h"
+#include "mapper.h"
 #include "odometry.h"
 #include "path_tracker.h"
-#include "lidarodometry.h"
-
 
 #ifndef DISABLE_OPENCV
 #include "opencv2/core/utility.hpp"
@@ -22,6 +22,7 @@ Q_DECLARE_METATYPE(cv::Mat)
 #ifndef DISABLE_SKELETON
 Q_DECLARE_METATYPE(skeleton)
 #endif
+
 Q_DECLARE_METATYPE(std::vector<LaserData>)
 class robot : public QObject {
   Q_OBJECT
@@ -30,7 +31,7 @@ public:
   Odometry odom;
   PathTracker path_tracker;
   LidarOdometry lidarOdom;
-
+  Mapper mapper;
 
   void initAndStartRobot(std::string ipaddress);
 
@@ -40,7 +41,8 @@ public:
   void setSpeedVal(double forw, double rots);
   // tato funkcia fyzicky posiela hodnoty do robota
   void setSpeed(double forw, double rots);
-signals:
+  void plotMap();
+  signals:
   void publishPosition(double x, double y, double z, double omega, double v);
   void publishLidar(const std::vector<LaserData> &lidata);
 #ifndef DISABLE_OPENCV

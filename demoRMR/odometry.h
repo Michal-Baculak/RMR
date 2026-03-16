@@ -7,6 +7,8 @@
 #include <vector>
 
 struct Pose;
+struct Point;
+struct XYQPoint;
 
 class Odometry
 {
@@ -43,10 +45,13 @@ public:
     double getRot() {return _rot;}
     double getOmega() {return _omega;}
     double getV() {return _v;}
+    void compensateLidarScan(std::vector<LaserData> &laserData, std::vector<XYQPoint> &parsedPoints);
     void compensateLidarScan(std::vector<LaserData> &laserData);
     Pose interpolatePosition(Pose p1, Pose p2, uint32_t t1, uint32_t t2, uint32_t t);
     Pose extrapolatePosition(Pose p0, double v, double w, double t);
     Pose getCurrentPoseEstimate(uint32_t currentTimestamp);
+    Point laserToPoint(LaserData laser);
+    Point laserToPoint(Pose observer, LaserData laser);
 };
 
 struct Pose
@@ -54,6 +59,19 @@ struct Pose
     double x;
     double y;
     double phi;
+};
+
+struct Point
+{
+    double x;
+    double y;
+};
+
+struct XYQPoint
+{
+    Point p;
+    int scanQuality;
+    uint32_t timestamp;
 };
 
 #endif // ODOMETRY_H

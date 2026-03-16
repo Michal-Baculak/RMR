@@ -87,8 +87,11 @@ void Odometry::init(TKobukiData initData)
     std::cout << "Angle init rot: " << _rot << ", rotPrev: " << _rotPrev << ", gyroPrev: " << _gyroAnglePrev << std::endl;;
 }
 
-void Odometry::compensateLidarScan(std::vector<LaserData> &laserData)
+void Odometry::compensateLidarScan(std::vector<LaserData> &laserData,
+                                   std::vector<XYQPoint> &parsedPoints)
 {
+    parsedPoints.clear();
+    parsedPoints.resize(laserData.size());
     std::cout << "Printing first laser beam timestamp: " << laserData.begin()->timestamp
               << std::endl;
     for (auto &laserBeam : laserData) {
@@ -129,8 +132,8 @@ void Odometry::compensateLidarScan(std::vector<LaserData> &laserData)
 
         // calculate the laser point position w.r.t. the origin pose
         double laser_angle = laser_origin.phi - laserBeam.scanAngle * PI / 180;
-        double laser_x = laser_origin.x + laserBeam.scanDistance * cos(laser_angle);
-        double laser_y = laser_origin.y + laserBeam.scanDistance * sin(laser_angle);
+        double laser_x = laser_origin.x + laserBeam.scanDistance * cos(laser_angle) / 1000;
+        double laser_y = laser_origin.y + laserBeam.scanDistance * sin(laser_angle) / 1000;
 
         // recalculate w.r.t the current position
         double beam_dx = laser_x - _posX;
@@ -140,9 +143,18 @@ void Odometry::compensateLidarScan(std::vector<LaserData> &laserData)
 
         // modify beam
         laserBeam.scanAngle = -beam_angle * 180 / PI;
-        laserBeam.scanDistance = beam_dist;
+        laserBeam.scanDistance = beam_dist * 1000;
         //std::cout << "min index for this laser beam: " << min_idx << std::endl;
+
+        // save parsed (XY) points
+        parsedPoints.push_back({{laser_x, laser_y}, laserBeam.scanQuality, laserBeam.timestamp});
     }
+}
+
+void Odometry::compensateLidarScan(std::vector<LaserData> &laserData)
+{
+    std::vector<XYQPoint> empty;
+    compensateLidarScan(laserData, empty);
 }
 
 Pose Odometry::interpolatePosition(Pose p1, Pose p2, uint32_t t1, uint32_t t2, uint32_t t)
@@ -192,4 +204,18 @@ Pose Odometry::getCurrentPoseEstimate(uint32_t currentTimestamp)
     uint32_t deltaT = currentTimestamp - last_pose_pair.first;
     double dt = deltaT / 1000000;
     return extrapolatePosition(last_pose_pair.second, _v, _omega, dt);
+}
+
+Point Odometry::laserToPoint(LaserData laser)
+{
+    return laserToPoint({_posX, _posY, _rot}, laser);
+}
+
+Point Odometry::laserToPoint(Pose observer, LaserData laser)
+{
+    Point output;
+    double angle = observer.phi - laser.scanAngle * PI / 180;
+    output.x = observer.x + laser.scanDistance * cos(angle) / 1000;
+    output.y = observer.y + laser.scanDistance * sin(angle) / 1000;
+    return output;
 }

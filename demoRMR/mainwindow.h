@@ -72,6 +72,8 @@ public:
 
   void on_pushButton_11_clicked();
 
+  void on_pushButton_12_clicked();
+
   private:
   robot _robot;
   Ui::MainWindow *ui;

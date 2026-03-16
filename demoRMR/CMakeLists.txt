@@ -9,6 +9,9 @@ set(HEADERS
     robot.h
 )
 
+find_package(OpenCV REQUIRED)
+include_directories( ${OpenCV_INCLUDE_DIRS} )
+
 if(NOT DISABLE_JOYSTICK)
     add_compile_definitions(USING_QJOYSTICKS)
 endif()
@@ -42,6 +45,7 @@ endif()
 target_link_libraries(${PROJECT_NAME} 
     PRIVATE librobot::librobot
     PRIVATE Qt6::Core Qt6::Widgets Qt6::Gui Qt6::Network
+    PRIVATE ${OpenCV_LIBS}
 )
 
 if(NOT DISABLE_JOYSTICK)
