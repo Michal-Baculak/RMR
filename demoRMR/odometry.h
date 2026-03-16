@@ -30,7 +30,7 @@ private:
     bool _isInitialized = false;
 
     std::vector<std::pair<uint32_t, Pose>> _poseStack; // positions are saved latest
-    const size_t POSE_STACK_MAX_SIZE = 5;              // Position -> 40Hz, LiDAR -> ??Hz
+    const size_t POSE_STACK_MAX_SIZE = 7;              // Position -> 40Hz, LiDAR -> ??Hz
 
 public:
     void update(TKobukiData robotData);
@@ -46,6 +46,7 @@ public:
     void compensateLidarScan(std::vector<LaserData> &laserData);
     Pose interpolatePosition(Pose p1, Pose p2, uint32_t t1, uint32_t t2, uint32_t t);
     Pose extrapolatePosition(Pose p0, double v, double w, double t);
+    Pose getCurrentPoseEstimate(uint32_t currentTimestamp);
 };
 
 struct Pose

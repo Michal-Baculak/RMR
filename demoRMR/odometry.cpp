@@ -114,6 +114,7 @@ void Odometry::compensateLidarScan(std::vector<LaserData> &laserData)
             uint32_t deltaT = laserBeam.timestamp - last_timestamp;
             double dt = deltaT / 1000000.0; // -ish? (TODO)
             laser_origin = extrapolatePosition(last_pose, _v, _omega, dt);
+            std::cout << "Interpolated pose..." << std::endl;
         } else {
             // interpolate pose
             size_t next_idx = min_idx + 1;
@@ -131,7 +132,7 @@ void Odometry::compensateLidarScan(std::vector<LaserData> &laserData)
         double laser_x = laser_origin.x + laserBeam.scanDistance * cos(laser_angle);
         double laser_y = laser_origin.y + laserBeam.scanDistance * sin(laser_angle);
 
-        // recalculate w.r.t to current position
+        // recalculate w.r.t the current position
         double beam_dx = laser_x - _posX;
         double beam_dy = laser_y - _posY;
         double beam_dist = sqrt(beam_dx * beam_dx + beam_dy * beam_dy);
@@ -150,7 +151,9 @@ Pose Odometry::interpolatePosition(Pose p1, Pose p2, uint32_t t1, uint32_t t2, u
     double progress = static_cast<double>(t - t1) / (t2 - t1);
     output.x = p1.x + (p2.x - p1.x) * progress;
     output.y = p1.y + (p2.y - p1.y) * progress;
-    output.phi = p1.phi + (p2.phi - p1.phi) * progress;
+
+    double d_phi = utility::wrap(p2.phi - p1.phi);
+    output.phi = p1.phi + d_phi * progress;
     output.phi = utility::wrap(output.phi);
     return output;
 }
@@ -182,4 +185,11 @@ Pose Odometry::extrapolatePosition(Pose p0, double v, double w, double t)
     output.phi = utility::wrap(p0.phi + d_phi);
 
     return output;
+}
+Pose Odometry::getCurrentPoseEstimate(uint32_t currentTimestamp)
+{
+    auto last_pose_pair = _poseStack.at(_poseStack.size() - 1);
+    uint32_t deltaT = currentTimestamp - last_pose_pair.first;
+    double dt = deltaT / 1000000;
+    return extrapolatePosition(last_pose_pair.second, _v, _omega, dt);
 }
