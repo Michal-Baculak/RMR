@@ -14,7 +14,7 @@ class Mapper
     const uint16_t HITS_TO_REGISTER = 10;
     const double WEAR_OFF_COEFF
         = 0.8; //after each iteration, this is the amount to which the registration count will reduce
-
+    const double LIDAR_MIN_DIST = 0.1; // [m] - minimal valid LiDAR reading point
     std::vector<std::vector<uint16_t>> _map;
     size_t _mid_point = 0;
     size_t _map_size = 0;

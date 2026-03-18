@@ -1,4 +1,5 @@
 #include "robot.h"
+#include "chrono"
 #include "opencv2/core/hal/interface.h"
 #include "opencv2/opencv.hpp"
 
@@ -111,11 +112,16 @@ int robot::processThisRobot(const TKobukiData &robotdata)
 /// vola sa ked dojdu nove data z lidaru
 int robot::processThisLidar(const std::vector<LaserData>& laserData)
 {
-    copyOfLaserData=laserData;
+    copyOfLaserData = laserData;
     std::vector<XYQPoint> xyPointCloud;
-    odom.compensateLidarScan(copyOfLaserData, xyPointCloud);
-    mapper.update(odom, copyOfLaserData);
+    auto start = std::chrono::high_resolution_clock::now();
+    Odometry odom_copy = odom;
+    odom_copy.compensateLidarScan(copyOfLaserData, xyPointCloud);
+    mapper.update(odom_copy, copyOfLaserData);
     plotMap();
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+    std::cout << "Laser processing took " << duration.count() << std::endl;
     // ******************************** LiDAR Odometry ****************************************
     // if(!lidarOdom.isInitialized())
     //     lidarOdom.init(copyOfLaserData);
@@ -155,7 +161,7 @@ cv::Mat getMatFromMap(Mapper mapper)
     cv::Mat resized;
     cv::resize(rotated, resized, cv::Size(map_size * 2, map_size * 2));
 
-    return resized;
+    return rotated;
 }
 
 void robot::plotMap()

@@ -16,6 +16,7 @@ void Odometry::update(TKobukiData robotData)
     int16_t deltaLeft = static_cast<int16_t>(static_cast<uint16_t>(robotData.EncoderLeft) - static_cast<uint16_t>(_encoderLeftPrev));
     int16_t deltaRight = static_cast<int16_t>(static_cast<uint16_t>(robotData.EncoderRight) - static_cast<uint16_t>(_encoderRightPrev));
     double deltaRot = (robotData.GyroAngle - _gyroAnglePrev) * PI / 18000.0; // rad
+    deltaRot = utility::wrap(deltaRot);
 
     _encoderLeftPrev = robotData.EncoderLeft;
     _encoderRightPrev = robotData.EncoderRight;
@@ -54,7 +55,7 @@ void Odometry::update(TKobukiData robotData)
     //     _posY -= factor*(cos(_rot) - cos(_rotPrev));
     // }
 
-    std::cout << "Odometry: x = " << _posX << ", y = " << _posY << ", rot = " << _rot << ", rotPrev = " << _rotPrev << std::endl;
+    // std::cout << "Odometry: x = " << _posX << ", y = " << _posY << ", rot = " << _rot << ", rotPrev = " << _rotPrev << std::endl;
 
     _rotPrev = _rot;
 
@@ -69,7 +70,7 @@ void Odometry::update(TKobukiData robotData)
     if (_poseStack.size() > POSE_STACK_MAX_SIZE)
         _poseStack.erase(_poseStack.begin());
 
-    std::cout << robotData.synctimestamp << ", " << deltaT << std::endl;
+    // std::cout << robotData.synctimestamp << ", " << deltaT << std::endl;
 }
 
 void Odometry::init(TKobukiData initData)
@@ -92,8 +93,6 @@ void Odometry::compensateLidarScan(std::vector<LaserData> &laserData,
 {
     parsedPoints.clear();
     parsedPoints.resize(laserData.size());
-    std::cout << "Printing first laser beam timestamp: " << laserData.begin()->timestamp
-              << std::endl;
     for (auto &laserBeam : laserData) {
         // find the two saved poses, betweeen which the beam was executed
         uint32_t min_diff = 0 - 1;
@@ -117,7 +116,7 @@ void Odometry::compensateLidarScan(std::vector<LaserData> &laserData,
             uint32_t deltaT = laserBeam.timestamp - last_timestamp;
             double dt = deltaT / 1000000.0; // -ish? (TODO)
             laser_origin = extrapolatePosition(last_pose, _v, _omega, dt);
-            std::cout << "Interpolated pose..." << std::endl;
+
         } else {
             // interpolate pose
             size_t next_idx = min_idx + 1;

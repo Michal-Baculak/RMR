@@ -34,6 +34,8 @@ uint16_t &Mapper::getAt(double x, double y)
 void Mapper::update(Odometry odom, const std::vector<LaserData> &laserData)
 {
     for (auto &beam : laserData) {
+        if (beam.scanDistance / 1000.0 < LIDAR_MIN_DIST)
+            continue;
         Point point_coords = odom.laserToPoint(beam);
         uint16_t &map_val = getAt(point_coords.x, point_coords.y);
         if (map_val < 100)
