@@ -97,12 +97,23 @@ void Odometry::compensateLidarScan(std::vector<LaserData> &laserData,
         // find the two saved poses, betweeen which the beam was executed
         uint32_t min_diff = 0 - 1;
         size_t min_idx = 0;
+        bool is_valid = false;
         for (size_t i = 0, stack_size = _poseStack.size(); i < stack_size; ++i) {
-            uint32_t diff = laserBeam.timestamp - _poseStack.at(i).first;
+            uint32_t pose_ts = _poseStack.at(i).first;
+            if (laserBeam.timestamp < pose_ts)
+                continue;
+            is_valid = true;
+            uint32_t diff = laserBeam.timestamp - pose_ts;
             if (diff >= min_diff)
                 continue;
             min_diff = diff;
             min_idx = i;
+        }
+
+        if (!is_valid) {
+            std::cout << "laser beam is not valid, removing..." << std::endl;
+            laserBeam.scanDistance = 0;
+            continue;
         }
 
         // min_idx is the index of last saved pose before the laser returned
@@ -116,7 +127,12 @@ void Odometry::compensateLidarScan(std::vector<LaserData> &laserData,
             uint32_t deltaT = laserBeam.timestamp - last_timestamp;
             double dt = deltaT / 1000000.0; // -ish? (TODO)
             laser_origin = extrapolatePosition(last_pose, _v, _omega, dt);
-
+            std::cerr << "Extrapolating LiDAR data (this should not happen!)" << std::endl;
+            std::cerr << "This beam timestamp: " << laserBeam.timestamp << std::endl;
+            for (size_t i = 0; i < _poseStack.size(); ++i) {
+                std::cerr << "timestamp at " << i << " position is " << _poseStack.at(i).first
+                          << std::endl;
+            }
         } else {
             // interpolate pose
             size_t next_idx = min_idx + 1;

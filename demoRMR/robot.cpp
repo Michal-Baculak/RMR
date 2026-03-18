@@ -65,6 +65,15 @@ int robot::processThisRobot(const TKobukiData &robotdata)
 
     odom.update(robotdata);
 
+    if (new_lidar_data) {
+        std::vector<XYQPoint> xyPointCloud;
+        odom.compensateLidarScan(copyOfLaserData, xyPointCloud);
+        mapper.update(odom, copyOfLaserData);
+        plotMap();
+        emit publishLidar(copyOfLaserData);
+        new_lidar_data = false;
+    }
+
     if (path_tracker.isRunning()) {
         path_tracker.update(odom);
         auto command = path_tracker.getCommand();
@@ -112,16 +121,17 @@ int robot::processThisRobot(const TKobukiData &robotdata)
 /// vola sa ked dojdu nove data z lidaru
 int robot::processThisLidar(const std::vector<LaserData>& laserData)
 {
+    new_lidar_data = true;
     copyOfLaserData = laserData;
-    std::vector<XYQPoint> xyPointCloud;
-    auto start = std::chrono::high_resolution_clock::now();
-    Odometry odom_copy = odom;
-    odom_copy.compensateLidarScan(copyOfLaserData, xyPointCloud);
-    mapper.update(odom_copy, copyOfLaserData);
-    plotMap();
-    auto stop = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-    std::cout << "Laser processing took " << duration.count() << std::endl;
+
+    // ************** MOVED INTO PROCESSROBOT ***************************
+    // std::vector<XYQPoint> xyPointCloud;
+    // Odometry odom_copy = odom;
+    // odom_copy.compensateLidarScan(copyOfLaserData, xyPointCloud);
+    // mapper.update(odom_copy, copyOfLaserData);
+    // plotMap();
+    // ************** MOVED INTO PROCESSROBOT ***************************
+
     // ******************************** LiDAR Odometry ****************************************
     // if(!lidarOdom.isInitialized())
     //     lidarOdom.init(copyOfLaserData);
@@ -139,9 +149,8 @@ int robot::processThisLidar(const std::vector<LaserData>& laserData)
 
     // ******************************** LiDAR Odometry ****************************************
 
-    emit publishLidar(copyOfLaserData);
-   // update();//tento prikaz prinuti prekreslit obrazovku.. zavola sa paintEvent funkcia
-
+    // emit publishLidar(copyOfLaserData);
+    // update();//tento prikaz prinuti prekreslit obrazovku.. zavola sa paintEvent funkcia
 
     return 0;
 }

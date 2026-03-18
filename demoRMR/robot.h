@@ -52,6 +52,8 @@ public:
   void publishSkeleton(const skeleton &skeledata);
 #endif
 private:
+    bool new_lidar_data = false;
+
     /// toto su vase premenne na vasu odometriu (pouzijem vlastne, diky)
     double x;
     double y;

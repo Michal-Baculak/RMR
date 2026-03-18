@@ -32,7 +32,7 @@ private:
     bool _isInitialized = false;
 
     std::vector<std::pair<uint32_t, Pose>> _poseStack; // positions are saved latest (use deque)
-    const size_t POSE_STACK_MAX_SIZE = 7;              // Position -> 40Hz, LiDAR -> ??Hz
+    const size_t POSE_STACK_MAX_SIZE = 12;             // Position -> 40Hz, LiDAR -> ??Hz
 
 public:
     void update(TKobukiData robotData);
