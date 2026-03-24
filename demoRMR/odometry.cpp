@@ -53,7 +53,7 @@ void Odometry::update(TKobukiData robotData)
     //     _posY -= factor*(cos(_rot) - cos(_rotPrev));
     // }
 
-    std::cout << "Odometry: x = " << _posX << ", y = " << _posY << ", rot = " << _rot << ", rotPrev = " << _rotPrev << std::endl;
+    //std::cout << "Odometry: x = " << _posX << ", y = " << _posY << ", rot = " << _rot << ", rotPrev = " << _rotPrev << std::endl;
 
     _rotPrev = _rot;
 
@@ -63,7 +63,7 @@ void Odometry::update(TKobukiData robotData)
         _v = deltaDist / deltaT;
     }
 
-    std::cout << robotData.synctimestamp << ", " << deltaT << std::endl;
+    //std::cout << robotData.synctimestamp << ", " << deltaT << std::endl;
 }
 
 void Odometry::init(TKobukiData initData)

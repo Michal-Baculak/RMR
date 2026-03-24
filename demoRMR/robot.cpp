@@ -60,13 +60,21 @@ int robot::processThisRobot(const TKobukiData &robotdata)
 
     odom.update(robotdata);
 
-    if (path_tracker.isRunning()) {
-        path_tracker.update(odom);
-        auto command = path_tracker.getCommand();
-        std::cout << "Setting v to " << command.first << " m/s and w to " << command.second
-                  << "rad/s" << std::endl;
-        setSpeed(command.first * 1000, command.second);
-    }
+    // if (path_tracker.isRunning()) {
+    //     path_tracker.update(odom);
+    //     auto command = path_tracker.getCommand();
+    //     std::cout << "Setting v to " << command.first << " m/s and w to " << command.second
+    //               << "rad/s" << std::endl;
+    //     setSpeed(command.first * 1000, command.second);
+    // }
+
+    // if (path_tracker.isRunning()) {
+
+    //     double safeDir = nav.update(odom.getX(), odom.getY(), odom.getRot(), path_tracker.getSetpointX(), path_tracker.getSetpointY(), copyOfLaserData);
+    //     path_tracker.updateVFH(odom, safeDir);
+    //     auto command = path_tracker.getCommand();
+    //     setSpeed(command.first * 1000, command.second);
+    // }
 
     ///TU PISTE KOD... TOTO JE TO MIESTO KED NEVIETE KDE ZACAT,TAK JE TO NAOZAJ TU. AK AJ TAK NEVIETE, SPYTAJTE SA CVICIACEHO MA TU NATO STRING KTORY DA DO HLADANIA XXX
 
@@ -107,8 +115,22 @@ int robot::processThisRobot(const TKobukiData &robotdata)
 /// vola sa ked dojdu nove data z lidaru
 int robot::processThisLidar(const std::vector<LaserData>& laserData)
 {
+    // std::lock_guard<std::mutex> lock(latestLaserMutex);
+    // latestLaserData.numberOfScans = std::min((int)laserData.size(), 1000);
+    // for (int i = 0; i < latestLaserData.numberOfScans; i++) {
+    //     latestLaserData.Data[i] = laserData[i];
+    // }
 
     copyOfLaserData=laserData;
+
+    if (path_tracker.isRunning()) {
+
+            double safeDir = nav.update(odom.getX(), odom.getY(), odom.getRot(), path_tracker.getSetpointX(), path_tracker.getSetpointY(), copyOfLaserData);
+            path_tracker.updateVFH(odom, safeDir);
+            auto command = path_tracker.getCommand();
+            setSpeed(command.first * 1000, command.second);
+        }
+    nav.printLaserData(copyOfLaserData);
 
     // ******************************** LiDAR Odometry ****************************************
     // if(!lidarOdom.isInitialized())

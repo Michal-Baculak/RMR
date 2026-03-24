@@ -6,7 +6,8 @@
 #include "odometry.h"
 #include "path_tracker.h"
 #include "lidarodometry.h"
-
+#include "navigation.h"
+#include <mutex>
 
 #ifndef DISABLE_OPENCV
 #include "opencv2/core/utility.hpp"
@@ -30,6 +31,9 @@ public:
   Odometry odom;
   PathTracker path_tracker;
   LidarOdometry lidarOdom;
+  Navigation nav;
+  LaserData laserData;
+  std::mutex latestLaserMutex;
 
 
   void initAndStartRobot(std::string ipaddress);

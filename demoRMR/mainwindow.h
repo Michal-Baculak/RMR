@@ -82,6 +82,7 @@ public:
   QTimer *timer;
   double _setpointX = 1;
   double _setpointY = 0;
+  std::vector<int> _lastMHist;
 
   void setSetpoint(double x, double y);
 

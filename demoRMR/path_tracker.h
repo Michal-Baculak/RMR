@@ -43,6 +43,7 @@ public:
     void start();
     void stop();
     static double wrap(double angle);
+    void updateVFH(Odometry odom, double safeTarget);
 };
 
 #endif // PATH_TRACKER_H

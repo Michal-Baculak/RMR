@@ -69,6 +69,34 @@ void MainWindow::paintEvent(QPaintEvent *event)
             pero.setColor(Qt::red);//farba je zelena
             painter.setPen(pero);
             painter.drawEllipse(QPoint(rect.width()/2+rect.topLeft().x(), rect.height()/2+rect.topLeft().y()),15,15);
+            if (!_lastMHist.empty()) {
+                int cx = rect.width()  / 2 + rect.topLeft().x();
+                int cy = rect.height() / 2 + rect.topLeft().y();
+                int r_inner = 30;
+                int r_outer = 60;
+
+                int numSectors = (int)_lastMHist.size();
+                double sectorDeg = 360.0/numSectors;
+
+                for (int k = 0; k<numSectors; ++k){
+                    double startDeg = 90.0 + k * sectorDeg - sectorDeg / 2.0;
+
+                    QColor color = (_lastMHist[k] == 0) ? QColor(0, 255, 0, 80) : QColor(255, 0, 0, 80);
+
+                    painter.setBrush(color);
+                    pero.setColor(color.darker(150));
+                    pero.setWidth(1);
+                    painter.setPen(pero);
+
+                    QRect pieRect(cx - r_outer, cy - r_outer, 2 * r_outer, 2 * r_outer);
+                    painter.drawPie(pieRect, (int)(startDeg * 16), (int)(sectorDeg * 16));
+                }
+
+                painter.setBrush(Qt::black);
+                pero.setColor(Qt::green);
+                pero.setWidth(3);
+                painter.setPen(pero);
+            }
             painter.drawLine(QPoint(rect.width()/2+rect.topLeft().x(), rect.height()/2+rect.topLeft().y()),QPoint(rect.width()/2+rect.topLeft().x(), rect.height()/2+rect.topLeft().y()-15));
             pero.setColor(Qt::green);//farba je zelena
             painter.setPen(pero);
@@ -116,6 +144,8 @@ void  MainWindow::setUiValues(double robotX,double robotY,double robotFi, double
     ui->lineEdit_4->setText(QString::number(robotFi));
     ui->lineEdit_6->setText(QString::number(omega));
     ui->lineEdit_5->setText(QString::number(v));
+
+    _lastMHist = _robot.nav.getLastMHist();
 }
 
 

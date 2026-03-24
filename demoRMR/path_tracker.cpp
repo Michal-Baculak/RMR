@@ -130,3 +130,65 @@ double PathTracker::wrap(double x)
         x += 2 * PI;
     return x - PI;
 }
+
+void PathTracker::updateVFH(Odometry odom, double safeTarget)
+{
+    double theta = odom.getRot();
+    double dx = setpointX_ - odom.getX();
+    double dy = setpointY_ - odom.getY();
+    double rho = sqrt(dx * dx + dy * dy);
+
+    double alpha = wrap(-theta + safeTarget);
+    double beta = 0;
+
+    double v = k_rho_ * rho;
+    double w = k_alpha_ * alpha + k_beta_ * beta;
+
+    if (rho < POSITION_EPSILON) {
+        stop();
+        return;
+    }
+
+    double k = w / v;
+
+    if (rho > REGULATION_ZONE_DIST) {
+        // profile velocity
+        double profiled_vel = getProfiledVelocity(rho, REGULATION_ZONE_DIST);
+        if (profiled_vel > v)
+            v = profiled_vel;
+    } else
+        std::cout << "Near target, applying precise position regulation..." << std::endl;
+
+    double dt = 0.01;
+    double a = (v - command_v_) / dt;
+    double epsilon = (w - command_w_) / dt;
+
+    double a_clamped = std::clamp((v - command_v_) / dt, -ACCELERATION_MAX, ACCELERATION_MAX);
+    double epsilon_clamped = std::clamp((w - command_w_) / dt, -ANGULAR_ACCELERATION_MAX, ANGULAR_ACCELERATION_MAX);
+
+
+    command_v_ = std::clamp(command_v_ + dt * a_clamped, -V_MAX, V_MAX);
+    command_w_ = std::clamp(command_w_ + dt * epsilon_clamped, -W_MAX, W_MAX);
+
+    // curvature adjust commands
+    if (k == 0)
+        // this means w = 0, we dont need cross adjusting
+        return;
+
+    std::cout << "curvature after clamping speeds is " << command_w_ / command_v_ << std::endl;
+    if (abs(command_w_ / command_v_) < abs(k)) {
+        // v is relatively higher, make it match the curvature:
+        // k = w/v
+        // v = w/k
+        std::cout << "Adjusting velocity to match curvature..." << std::endl;
+        command_v_ = command_w_ / k;
+    }
+
+    if (abs(command_w_ / command_v_) > abs(k)) {
+        // w is relatively higher, lower it
+        // k = w/v
+        // w = k*v
+        std::cout << "Adjusting angular velocity to match curvature..." << std::endl;
+        command_w_ = command_v_ * k;
+    }
+}
