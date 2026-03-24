@@ -22,7 +22,7 @@ class PathTracker
     bool is_running_ = false;
 
     const double V_MAX = 0.4;     // [m/s]
-    const double W_MAX = 3.14159; // [rad/s]
+    const double W_MAX = 3.14159 / 2; // [rad/s]
     const double POSITION_EPSILON
         = 0.015; // [m] if position error falls in this range, position is considered reached and controller stops
     const double POSITION_EPSILON_DYNAMIC
@@ -30,8 +30,11 @@ class PathTracker
     const double REGULATION_ZONE_DIST
         = 0.1; // [m] if the distance from setpoint falls withing this bound, velocity is no longer profiled and is instead being set by regulator
     // it should hold that POSITION_EPSILON_DNYMIC > REGULATION_ZONE_DIST > POSITION_EPSILON > 0
-    const double ACCELERATION_MAX = 1 * 1;            // [m/s^2]
-    const double ANGULAR_ACCELERATION_MAX = 1 * 3.14; // [rad/s^2]
+    const double ACCELERATION_MAX = 0.5 * 1;            // [m/s^2]
+    const double ANGULAR_ACCELERATION_MAX = 0.3 * 3.14; // [rad/s^2]
+    const double SAMPLING_PERIOD
+        = 0.025; //[s] - we are setting this to a constant, to solve for sudden jumps if frames are missed
+
 public:
     void setSetpoint(double x, double y);
     double getSetpointX() { return setpointX_; }

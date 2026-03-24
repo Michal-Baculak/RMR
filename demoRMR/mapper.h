@@ -6,6 +6,8 @@
 #include <vector>
 
 class Odometry;
+struct XYQPoint;
+struct Point;
 
 class Mapper
 {
@@ -29,6 +31,9 @@ public:
     bool isInitialized();
     void init();
     void update(Odometry odom, const std::vector<LaserData> &laserData);
+    void update(const std::vector<XYQPoint> &parsedPoints);
+    inline void registerPoint(uint16_t &map_point);
+    inline void registerPoint(Point p);
     uint16_t getMapElement(size_t ix, size_t iy);
 };
 

@@ -63,12 +63,14 @@ int robot::processThisRobot(const TKobukiData &robotdata)
     if (!odom.isInitialized())
         odom.init(robotdata);
 
+    bool run_mapper = new_lidar_data;
     odom.update(robotdata);
 
-    if (new_lidar_data) {
+    if (run_mapper) {
         std::vector<XYQPoint> xyPointCloud;
         odom.compensateLidarScan(copyOfLaserData, xyPointCloud);
-        mapper.update(odom, copyOfLaserData);
+        // mapper.update(odom, copyOfLaserData);
+        mapper.update(xyPointCloud);
         plotMap();
         emit publishLidar(copyOfLaserData);
         new_lidar_data = false;

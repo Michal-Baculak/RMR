@@ -31,17 +31,34 @@ uint16_t &Mapper::getAt(double x, double y)
     return getAt(x_int, y_int);
 }
 
+inline void Mapper::registerPoint(Point p)
+{
+    uint16_t &map_val = getAt(p.x, p.y);
+    registerPoint(map_val);
+}
+
+inline void Mapper::registerPoint(uint16_t &map_point)
+{
+    if (map_point < 100)
+        map_point += 5;
+    if (map_point > 100)
+        map_point = 100;
+}
+
 void Mapper::update(Odometry odom, const std::vector<LaserData> &laserData)
 {
     for (auto &beam : laserData) {
         if (beam.scanDistance / 1000.0 < LIDAR_MIN_DIST)
             continue;
         Point point_coords = odom.laserToPoint(beam);
-        uint16_t &map_val = getAt(point_coords.x, point_coords.y);
-        if (map_val < 100)
-            map_val += 5;
-        if (map_val > 100)
-            map_val = 100;
+        registerPoint(point_coords);
+    }
+}
+void Mapper::update(const std::vector<XYQPoint> &parsedPoints)
+{
+    for (auto &laser_pt : parsedPoints) {
+        uint16_t &map_val = getAt(laser_pt.p.x, laser_pt.p.y);
+        registerPoint(map_val);
     }
 }
 

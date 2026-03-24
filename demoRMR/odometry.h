@@ -28,6 +28,7 @@ private:
     // We will use these magic constants
     static constexpr double _wheelBase = 0.230; //razvor kolies v metroch
     static constexpr double _tickToMeter = 0.000085292090497737556558;
+    const double LIDAR_MIN_DIST = 0.1; // [m] - minimal valid LiDAR reading point
 
     bool _isInitialized = false;
 

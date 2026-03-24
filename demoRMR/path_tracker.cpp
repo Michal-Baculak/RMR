@@ -44,7 +44,7 @@ void PathTracker::update(Odometry odom)
         std::cout << "Near target, applying precise position regulation..." << std::endl;
 
     // calculate suggested acceleration
-    double dt = 0.01; // no idea how to calculate this accurately... 0,025
+    double dt = SAMPLING_PERIOD;
     double a = (v - command_v_) / dt;
     double epsilon = (w - command_w_) / dt;
 

@@ -92,8 +92,9 @@ void Odometry::compensateLidarScan(std::vector<LaserData> &laserData,
                                    std::vector<XYQPoint> &parsedPoints)
 {
     parsedPoints.clear();
-    parsedPoints.resize(laserData.size());
     for (auto &laserBeam : laserData) {
+        if (laserBeam.scanDistance < LIDAR_MIN_DIST)
+            continue;
         // find the two saved poses, betweeen which the beam was executed
         uint32_t min_diff = 0 - 1;
         size_t min_idx = 0;
