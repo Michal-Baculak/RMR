@@ -80,6 +80,14 @@ void PathTracker::regulate(double rho, double alpha, double beta)
         std::cout << "Adjusting angular velocity to match curvature..." << std::endl;
         command_w_ = command_v_ * k;
     }
+    // std::cout << "resulting command_v: " <<
+}
+
+double PathTracker::getDistToSetpoint(Odometry odom)
+{
+    double dx = setpointX_ - odom.getX();
+    double dy = setpointY_ - odom.getY();
+    return sqrt(dx * dx + dy * dy);
 }
 
 void PathTracker::update(Odometry odom)
@@ -96,10 +104,15 @@ void PathTracker::update(Odometry odom)
 
 void PathTracker::updateVFH(Odometry odom, double safe_heading)
 {
-    double rho = (POSITION_EPSILON + REGULATION_ZONE_DIST) / 2;
+    double rho = 0.1 * POSITION_EPSILON + 0.9 * REGULATION_ZONE_DIST;
     double theta = odom.getRot();
     double alpha = wrap(safe_heading - theta);
     double beta = 0;
+    if (getDistToSetpoint(odom) < POSITION_EPSILON) {
+        std::cout << "Reactive navigation reached destination" << std::endl;
+        stop();
+        return;
+    }
     regulate(rho, alpha, beta);
 }
 
@@ -247,4 +260,4 @@ double PathTracker::wrap(double x)
 //             }
 //         }
 //     }
-}
+// }

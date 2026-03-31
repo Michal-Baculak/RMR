@@ -49,6 +49,7 @@ public:
 
 private:
     void regulate(double rho, double alpha, double beta);
+    double getDistToSetpoint(Odometry odom);
 };
 
 #endif // PATH_TRACKER_H

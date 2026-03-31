@@ -30,7 +30,8 @@ double Navigation::update(double rX, double rY, double rPhi, double targetX, dou
     //primary polar histogram
     for (int i = 0; i < (int)laserData.size(); ++i) {
         double d_i = laserData[i].scanDistance / 1000.0; // distance to obstacle
-        double alpha_i = -laserData[i].scanAngle; // angle between robot heading and obstacle's centre of mass
+        double alpha_i
+            = laserData[i].scanAngle; // angle between robot heading and obstacle's centre of mass
 
         alpha_i = std::fmod(alpha_i, 360.0);
         if (alpha_i < 0.0) alpha_i += 360.0;
@@ -84,7 +85,7 @@ double Navigation::update(double rX, double rY, double rPhi, double targetX, dou
 
         for (int i = 0; i < int(laserData.size()); ++i) {
             double d_ij = laserData[i].scanDistance / 1000.0;
-            double beta_rad = -laserData[i].scanAngle * PI / 180.0;
+            double beta_rad = laserData[i].scanAngle * PI / 180.0;
 
             if (d_ij < 0.05 || d_ij >= 3.0) continue;
 
