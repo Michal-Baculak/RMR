@@ -1,4 +1,5 @@
 #include "navigation.h"
+#include "algorithm"
 
 Navigation::Navigation()
     : _prev_binary_hist(NUM_SECTORS, 0)
@@ -12,32 +13,40 @@ int Navigation::circularDist(int k1, int k2) const
     return std::min(diff, NUM_SECTORS-diff);
 }
 
-double Navigation::update(double rX, double rY, double rPhi, double targetX, double targetY, const std::vector<LaserData> &laserData)
+double Navigation::update(double rX, double rY, double rPhi, double targetX, double targetY, const std::vector<LaserData> &laserData, double currentV, double currentW)
 {
     std::vector<double> pHist(NUM_SECTORS, 0.0); // primary histogram
 
+    // TODO: ratat polomer otacania dynamicky z rychlosti, pripadne v aktualnom natoceni si urcit bod niekolko mm dopredu a poslat to
+    // ako setpoint pre regulator
+    double r_min;
+    if (std::abs(currentV) < 0.001) {
+        r_min = RADIUS;
+    } else {
+        r_min = std::abs(currentV) / 2*PI;
+        r_min = std::clamp(r_min, RADIUS, R_MIN_STATIC);
+    }
+
     //primary polar histogram
-    for (int i = 0; i < laserData.size(); ++i) {
+    for (int i = 0; i < (int)laserData.size(); ++i) {
         double d_i = laserData[i].scanDistance / 1000.0; // distance to obstacle
         double alpha_i = -laserData[i].scanAngle; // angle between robot heading and obstacle's centre of mass
 
+        alpha_i = std::fmod(alpha_i, 360.0);
+        if (alpha_i < 0.0) alpha_i += 360.0;
+
         if (d_i > 0.05 && d_i < 3.0){
             double m_i = _a - _b * d_i; // obstacle's magnitude
-            if (m_i < 0) m_i = 0;
+            if (m_i < 0.0) m_i = 0.0;
 
-            double gamma_i = std::asin(std::min(1.0, RS / d_i)) * 180 / PI; // magnification angle
+            double gamma_i = std::asin(std::min(1.0, (RADIUS + RS) / d_i)) * 180.0 / PI; // magnification angle
 
             for (int k = 0; k < NUM_SECTORS; ++k){
                 double p_k = SIGMA * k;
-                double diff = std::fmod(std::abs(p_k - alpha_i) + 180.0, 360.0) - 180.0;
-                if(std::abs(diff) < gamma_i){
+                double diff = std::fmod(std::abs(p_k - alpha_i) + 540.0, 360.0) - 180.0;
+                if(std::abs(diff) <= gamma_i){
                     pHist[k] += m_i;
                 }
-
-                // if(std::max(k*SIGMA, alpha_i - gamma_i) <= std::min((k+1)*SIGMA, alpha_i + gamma_i))
-                // {
-                //     pHist[k] += m_i;
-                // }
             }
         }
     }
@@ -46,8 +55,8 @@ double Navigation::update(double rX, double rY, double rPhi, double targetX, dou
     std::vector<int> bHist(NUM_SECTORS, 0);
 
     for(int k = 0; k < NUM_SECTORS; ++k) {
-        if (pHist[k] > _t_high) bHist[k] = 1;
-        else if (pHist[k] < _t_low) bHist[k] = 0;
+        if (pHist[k] >= _t_high) bHist[k] = 1;
+        else if (pHist[k] <= _t_low) bHist[k] = 0;
         else bHist[k] = _prev_binary_hist[k];
     }
 
@@ -56,20 +65,24 @@ double Navigation::update(double rX, double rY, double rPhi, double targetX, dou
     //masked polar histogram
     std::vector<int> mHist = bHist;
 
-    for (int k = 0; k < NUM_SECTORS; k++){
-        if (bHist[k] == 1) continue;
+    for (int k = 0; k < NUM_SECTORS; ++k){
+        if (mHist[k] == 1) continue;
 
-        double alpha_k = k * SIGMA * PI / 180.0;
-        if (alpha_k > PI) alpha_k -= 2.0 * PI;
-        if (alpha_k < -PI) alpha_k += 2.0 * PI;
+        double sector_deg = k*SIGMA;
+        if (sector_deg > 180.0) sector_deg -= 360.0;
 
-        if (std::abs(alpha_k) < 1e-6) continue;
+        double alpha_k = sector_deg * PI / 180.0;
+        // if (alpha_k > PI) alpha_k -= 2.0 * PI;
+        // if (alpha_k < -PI) alpha_k += 2.0 * PI;
 
-        double cy = (alpha_k > 0) ? R_MIN : -R_MIN;
+        // if (std::abs(alpha_k) < 1e-6) continue;
 
-        double start_ang = std::atan2(-cy, 0.0);
+        double cy = (alpha_k > 0.0) ? r_min : -r_min;
 
-        for (int i = 0; i < laserData.size(); ++i) {
+        double start_ang = std::atan2(0.0-cy, 0.0);
+        double total_sweep = std::abs(alpha_k);
+
+        for (int i = 0; i < int(laserData.size()); ++i) {
             double d_ij = laserData[i].scanDistance / 1000.0;
             double beta_rad = -laserData[i].scanAngle * PI / 180.0;
 
@@ -78,40 +91,41 @@ double Navigation::update(double rX, double rY, double rPhi, double targetX, dou
             double ox = d_ij * std::cos(beta_rad);
             double oy = d_ij * std::sin(beta_rad);
 
-            if (alpha_k > 0 && oy <= 0.0) continue;
-            if (alpha_k < 0 && oy >= 0.0) continue;
+            // if (alpha_k > 0 && oy <= 0.0) continue;
+            // if (alpha_k < 0 && oy >= 0.0) continue;
 
-            double dist_to_centre = std::sqrt(ox*ox + (oy - cy)*(oy - cy));
-            double inner = std::max(0.0, R_MIN - RS);
-            if (dist_to_centre < R_MIN - RS || dist_to_centre > R_MIN + RS) continue;
+            //double dist_to_centre = std::sqrt(ox*ox + (oy - cy)*(oy - cy));
+            double dist_to_centre = std::hypot(ox - 0.0, oy - cy);
+            if (dist_to_centre < r_min - RS || dist_to_centre > r_min + RS) continue;
 
+            double obs_ang = std::atan2(oy - cy, ox - 0.0);
+            //bool in_arc;
+            double sweep;
+            if(alpha_k > 0.0) {
+                sweep = obs_ang - start_ang;
 
-            double obs_ang = std::atan2(oy - cy, ox);
-            bool in_arc;
-
-            if(alpha_k > 0) {
-                double sweep = obs_ang - start_ang;
-                while (sweep < 0) sweep += 2.0*PI;
-                while (sweep > 2.0 * PI) sweep -= 2.0*PI;
-
-                in_arc= (sweep <= alpha_k + 0.05);
             } else {
-                double sweep = start_ang - obs_ang;
-                while (sweep < 0)        sweep += 2.0 * PI;
-                while (sweep > 2.0 * PI) sweep -= 2.0 * PI;
-                in_arc = (sweep <= -alpha_k + 0.05);
+                sweep = start_ang - obs_ang;
             }
 
-            if (in_arc) { mHist[k] = 1; break; }
+            while (sweep < 0.0) sweep += 2.0 * PI;
+            while (sweep > 2.0 * PI) sweep -= 2.0 * PI;
+
+            if (sweep <= total_sweep + 0.1) {
+                mHist[k] = 1;
+                break;
+            }
         }
     }
 
     _last_mHist = mHist;
 
-    double targetAngleGlob = atan2(targetY - rY, targetX - rX) * 180.0 / PI;
+    double targetAngleGlob = std::atan2(targetY - rY, targetX - rX) * 180.0 / PI;
     double targetAngleRel = targetAngleGlob - (rPhi * 180.0 / PI);
+
     targetAngleRel = std::fmod(targetAngleRel, 360.0);
-    if (targetAngleRel < 0) targetAngleRel += 360.0;
+    if (targetAngleRel < 0.0) targetAngleRel += 360.0;
+
     int k_target = static_cast<int>(targetAngleRel / SIGMA) % NUM_SECTORS;
 
     std::vector<int> candidates;
@@ -124,13 +138,23 @@ double Navigation::update(double rX, double rY, double rPhi, double targetX, dou
         if (mHist[k] == 1) {all_free = false; break;}
 
     if (all_free) {
-        candidates.push_back(k_target);
-    } else {
-        int scan_start = 0;
-        for (int k = 0; k < NUM_SECTORS; ++k){
-            if (mHist[k] == 1 && mHist[(k+1) % NUM_SECTORS] == 0) {
-                scan_start = (k+1) % NUM_SECTORS;
-                break;
+        if (candidates.empty())
+            candidates.push_back(k_target);
+        } else {
+            int scan_start = 0;
+            bool found = false;
+            for (int k = 0; k < NUM_SECTORS; ++k){
+                int prev = (k - 1 + NUM_SECTORS) % NUM_SECTORS;
+                if (mHist[prev] == 1 && mHist[k] == 0) {
+                    scan_start = k;
+                    found = true;
+                    break;
+            }
+        }
+
+        if (!found) {
+            for (int k = 0; k < NUM_SECTORS; ++k) {
+               if (mHist[k] == 0) { scan_start = k; break; }
             }
         }
 
@@ -141,21 +165,27 @@ double Navigation::update(double rX, double rY, double rPhi, double targetX, dou
                 int v_start = k;
                 int width = 0;
 
-                while (mHist[k] == 0 && width < NUM_SECTORS) {
-                    k = (k + 1) % NUM_SECTORS;
+                while (width < NUM_SECTORS && mHist[(k + width) % NUM_SECTORS] == 0 && iter + width < NUM_SECTORS) {
                     width++;
-                    iter++;
                 }
 
-                if (width <= S_MAX) {
-                    int mid = (v_start + width / 2) % NUM_SECTORS;
-                    candidates.push_back(mid);
-                } else {
-                    int c_right = (v_start + S_MAX / 2) % NUM_SECTORS;
-                    int c_left = (v_start + width - 1 - S_MAX / 2 + NUM_SECTORS) % NUM_SECTORS;
-                    candidates.push_back(c_right);
-                    candidates.push_back(c_left);
+                if (width > 0) {
+                    if (width <= S_MAX) {
+                        int mid = (v_start + width / 2) % NUM_SECTORS;
+                        candidates.push_back(mid);
+                    } else {
+                        int c_right = (v_start + S_MAX / 2) % NUM_SECTORS;
+                        int c_left = (v_start + width - 1 - S_MAX / 2 + NUM_SECTORS) % NUM_SECTORS;
+                        candidates.push_back(c_right);
+                        candidates.push_back(c_left);
+                        int dist_from_start = (k_target - v_start + NUM_SECTORS) % NUM_SECTORS;
+                        if (dist_from_start < width){
+                            candidates.push_back(k_target);
+                        }
+                    }
                 }
+                k = (k + width) % NUM_SECTORS;
+                iter += width;
             } else {
                 k = (k + 1) % NUM_SECTORS;
                 iter++;
@@ -165,12 +195,13 @@ double Navigation::update(double rX, double rY, double rPhi, double targetX, dou
 
     if (candidates.empty()) return rPhi; // everything blocked = return current rotation angle
 
+
     int best_k = -1;
     double min_cost = 1e9;
 
     for (int c : candidates) {
         double cost = _mu1 * circularDist(c, k_target)
-                      + _mu2 * circularDist(c, rPhi)
+                      + _mu2 * circularDist(c, 0)
                       + _mu3 * circularDist(c, _prev_dir);
         if (cost < min_cost) {
             min_cost = cost;

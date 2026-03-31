@@ -145,7 +145,7 @@ void  MainWindow::setUiValues(double robotX,double robotY,double robotFi, double
     ui->lineEdit_6->setText(QString::number(omega));
     ui->lineEdit_5->setText(QString::number(v));
 
-    _lastMHist = _robot.nav.getLastMHist();
+    //_lastMHist = _robot.nav.getLastMHist();
 }
 
 
@@ -160,6 +160,7 @@ void MainWindow::on_pushButton_9_clicked() //start button
 
     connect(&_robot,SIGNAL(publishPosition(double,double,double,double,double)),this,SLOT(setUiValues(double,double,double,double,double)));
     connect(&_robot,SIGNAL(publishLidar(const std::vector<LaserData> &)),this,SLOT(paintThisLidar(const std::vector<LaserData> &)));
+    connect(&_robot, SIGNAL(publishHistogram(const std::vector<int>&)), this, SLOT(onHistogramUpdated(const std::vector<int>&)));
 #ifndef DISABLE_OPENCV
     connect(&_robot,SIGNAL(publishCamera(const cv::Mat &)),this,SLOT(paintThisCamera(const cv::Mat &)));
 #endif
@@ -183,6 +184,10 @@ void MainWindow::on_pushButton_9_clicked() //start button
     }
     );
 #endif
+}
+void MainWindow::onHistogramUpdated(const std::vector<int>& mHist)
+{
+    _lastMHist = mHist;
 }
 
 void MainWindow::on_pushButton_2_clicked() //forward

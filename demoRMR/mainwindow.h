@@ -60,6 +60,7 @@ public:
   void on_pushButton_clicked();
 
   int paintThisLidar(const std::vector<LaserData> &laserData);
+  void onHistogramUpdated(const std::vector<int>& mHist);
 #ifndef DISABLE_OPENCV
   int paintThisCamera(const cv::Mat &cameraData);
 #endif

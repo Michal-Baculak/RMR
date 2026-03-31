@@ -34,6 +34,7 @@ public:
   Navigation nav;
   LaserData laserData;
   std::mutex latestLaserMutex;
+  std::mutex navMutex;
 
 
   void initAndStartRobot(std::string ipaddress);
@@ -47,6 +48,7 @@ public:
 signals:
   void publishPosition(double x, double y, double z, double omega, double v);
   void publishLidar(const std::vector<LaserData> &lidata);
+  void publishHistogram(const std::vector<int>& mHist);
 #ifndef DISABLE_OPENCV
   void publishCamera(const cv::Mat &camframe);
 #endif

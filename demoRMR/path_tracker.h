@@ -32,6 +32,8 @@ class PathTracker
     // it should hold that POSITION_EPSILON_DNYMIC > REGULATION_ZONE_DIST > POSITION_EPSILON > 0
     const double ACCELERATION_MAX = 3 * 1;            // [m/s^2]
     const double ANGULAR_ACCELERATION_MAX = 4 * 3.14; // [rad/s^2]
+
+    const double LOOKAHEAD_DIST = 0.30;
 public:
     void setSetpoint(double x, double y);
     double getSetpointX() { return setpointX_; }

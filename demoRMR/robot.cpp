@@ -60,21 +60,30 @@ int robot::processThisRobot(const TKobukiData &robotdata)
 
     odom.update(robotdata);
 
-    // if (path_tracker.isRunning()) {
-    //     path_tracker.update(odom);
-    //     auto command = path_tracker.getCommand();
-    //     std::cout << "Setting v to " << command.first << " m/s and w to " << command.second
-    //               << "rad/s" << std::endl;
-    //     setSpeed(command.first * 1000, command.second);
-    // }
+    if (path_tracker.isRunning()) {
+        std::vector<LaserData> localLaser;
+        {
+            std::lock_guard<std::mutex> lock(latestLaserMutex);
+            localLaser = copyOfLaserData;
+        }
+        if (!localLaser.empty()) {
+            double currentV = odom.getV();       // [m/s]
+            double currentW = odom.getOmega();   // [rad/s]
 
-    // if (path_tracker.isRunning()) {
+            double safeDir = nav.update(
+                odom.getX(), odom.getY(), odom.getRot(),
+                path_tracker.getSetpointX(), path_tracker.getSetpointY(),
+                localLaser,
+                currentV, currentW
+                );
 
-    //     double safeDir = nav.update(odom.getX(), odom.getY(), odom.getRot(), path_tracker.getSetpointX(), path_tracker.getSetpointY(), copyOfLaserData);
-    //     path_tracker.updateVFH(odom, safeDir);
-    //     auto command = path_tracker.getCommand();
-    //     setSpeed(command.first * 1000, command.second);
-    // }
+            path_tracker.updateVFH(odom, safeDir);
+            auto command = path_tracker.getCommand();
+
+            setSpeed(command.first * 1000.0, command.second);
+        }
+    }
+
 
     ///TU PISTE KOD... TOTO JE TO MIESTO KED NEVIETE KDE ZACAT,TAK JE TO NAOZAJ TU. AK AJ TAK NEVIETE, SPYTAJTE SA CVICIACEHO MA TU NATO STRING KTORY DA DO HLADANIA XXX
 
@@ -88,7 +97,7 @@ int robot::processThisRobot(const TKobukiData &robotdata)
         /// okno pocuva vo svojom slote a vasu premennu nastavi tak ako chcete. prikaz emit to presne takto spravi
         /// viac o signal slotoch tu: https://doc.qt.io/qt-5/signalsandslots.html
         ///posielame sem nezmysli.. pohrajte sa nech sem idu zmysluplne veci
-        emit publishPosition(odom.getX() * 100, odom.getY() * 100, odom.getRot() * 180 / PI, odom.getOmega(), odom.getV());
+        emit publishPosition(odom.getX() * 100, odom.getY() * 100, odom.getRot() * 180.0 / PI, odom.getOmega(), odom.getV());
         ///toto neodporucam na nejake komplikovane struktury.signal slot robi kopiu dat. radsej vtedy posielajte
         /// prazdny signal a slot bude vykreslovat strukturu (vtedy ju musite mat samozrejme ako member premmennu v mainwindow.ak u niekoho najdem globalnu premennu,tak bude cistit bludisko zubnou kefkou.. kefku dodam)
         /// vtedy ale odporucam pouzit mutex, aby sa vam nestalo ze budete pocas vypisovania prepisovat niekde inde
@@ -115,22 +124,20 @@ int robot::processThisRobot(const TKobukiData &robotdata)
 /// vola sa ked dojdu nove data z lidaru
 int robot::processThisLidar(const std::vector<LaserData>& laserData)
 {
-    // std::lock_guard<std::mutex> lock(latestLaserMutex);
-    // latestLaserData.numberOfScans = std::min((int)laserData.size(), 1000);
-    // for (int i = 0; i < latestLaserData.numberOfScans; i++) {
-    //     latestLaserData.Data[i] = laserData[i];
-    // }
+    {
+        std::lock_guard<std::mutex> lock(latestLaserMutex);
+        copyOfLaserData=laserData;
+    }
 
-    copyOfLaserData=laserData;
+    // if (path_tracker.isRunning()) {
 
-    if (path_tracker.isRunning()) {
+    //         double safeDir = nav.update(odom.getX(), odom.getY(), odom.getRot(), path_tracker.getSetpointX(), path_tracker.getSetpointY(), copyOfLaserData);
+    //         path_tracker.updateVFH(odom, safeDir);
+    //         auto command = path_tracker.getCommand();
+    //         setSpeed(command.first * 1000, command.second);
+    //     }
 
-            double safeDir = nav.update(odom.getX(), odom.getY(), odom.getRot(), path_tracker.getSetpointX(), path_tracker.getSetpointY(), copyOfLaserData);
-            path_tracker.updateVFH(odom, safeDir);
-            auto command = path_tracker.getCommand();
-            setSpeed(command.first * 1000, command.second);
-        }
-    nav.printLaserData(copyOfLaserData);
+    //nav.printLaserData(copyOfLaserData);
 
     // ******************************** LiDAR Odometry ****************************************
     // if(!lidarOdom.isInitialized())
@@ -151,7 +158,10 @@ int robot::processThisLidar(const std::vector<LaserData>& laserData)
 
     emit publishLidar(copyOfLaserData);
    // update();//tento prikaz prinuti prekreslit obrazovku.. zavola sa paintEvent funkcia
-
+    {
+        std::lock_guard<std::mutex> lock(navMutex);
+        emit publishHistogram(nav.getLastMHist());
+    }
 
     return 0;
 
