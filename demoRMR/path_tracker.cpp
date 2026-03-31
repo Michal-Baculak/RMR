@@ -8,15 +8,8 @@ void PathTracker::setSetpoint(double x, double y)
     setpointY_ = y;
 }
 
-void PathTracker::update(Odometry odom)
+void PathTracker::regulate(double rho, double alpha, double beta)
 {
-    double theta = odom.getRot();
-    double dx = setpointX_ - odom.getX();
-    double dy = setpointY_ - odom.getY();
-    double rho = sqrt(dx * dx + dy * dy);
-    double alpha = wrap(-theta + atan2(dy, dx));
-    double beta = -theta - alpha;
-
     double v = k_rho_ * rho;
     double w = k_alpha_ * alpha + k_beta_ * beta;
 
@@ -87,6 +80,27 @@ void PathTracker::update(Odometry odom)
         std::cout << "Adjusting angular velocity to match curvature..." << std::endl;
         command_w_ = command_v_ * k;
     }
+}
+
+void PathTracker::update(Odometry odom)
+{
+    double theta = odom.getRot();
+    double dx = setpointX_ - odom.getX();
+    double dy = setpointY_ - odom.getY();
+    double rho = sqrt(dx * dx + dy * dy);
+    double alpha = wrap(-theta + atan2(dy, dx));
+    double beta = -theta - alpha;
+
+    regulate(rho, alpha, beta);
+}
+
+void PathTracker::updateVFH(Odometry odom, double safe_heading)
+{
+    double rho = (POSITION_EPSILON + REGULATION_ZONE_DIST) / 2;
+    double theta = odom.getRot();
+    double alpha = wrap(safe_heading - theta);
+    double beta = 0;
+    regulate(rho, alpha, beta);
 }
 
 double PathTracker::getProfiledVelocity(double dist, double regulationZoneDist)

@@ -37,12 +37,16 @@ public:
     double getSetpointX() { return setpointX_; }
     double getSetpointY() { return setpointY_; }
     void update(Odometry odom);
+    void updateVFH(Odometry odom, double safe_heading);
     double getProfiledVelocity(double dist, double regulationZoneDist);
     std::pair<double, double> getCommand();
     bool isRunning();
     void start();
     void stop();
     static double wrap(double angle);
+
+private:
+    void regulate(double rho, double alpha, double beta);
 };
 
 #endif // PATH_TRACKER_H
