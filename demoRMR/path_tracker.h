@@ -30,22 +30,25 @@ class PathTracker
     const double REGULATION_ZONE_DIST
         = 0.1; // [m] if the distance from setpoint falls withing this bound, velocity is no longer profiled and is instead being set by regulator
     // it should hold that POSITION_EPSILON_DNYMIC > REGULATION_ZONE_DIST > POSITION_EPSILON > 0
-    const double ACCELERATION_MAX = 3 * 1;            // [m/s^2]
-    const double ANGULAR_ACCELERATION_MAX = 4 * 3.14; // [rad/s^2]
+    const double LOOKAHEAD_DIST = 0.30;               // added for VFH, consider removing
+    const double ACCELERATION_MAX = 1 * 1;            // [m/s^2]
+    const double ANGULAR_ACCELERATION_MAX = 1 * 3.14; // [rad/s^2]
 
-    const double LOOKAHEAD_DIST = 0.30;
 public:
     void setSetpoint(double x, double y);
     double getSetpointX() { return setpointX_; }
     double getSetpointY() { return setpointY_; }
     void update(Odometry odom);
+    void updateVFH(Odometry odom, double safe_heading);
     double getProfiledVelocity(double dist, double regulationZoneDist);
     std::pair<double, double> getCommand();
     bool isRunning();
     void start();
     void stop();
     static double wrap(double angle);
-    void updateVFH(Odometry odom, double safeTarget);
+
+private:
+    void regulate(double rho, double alpha, double beta);
 };
 
 #endif // PATH_TRACKER_H
