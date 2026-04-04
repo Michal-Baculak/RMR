@@ -70,6 +70,7 @@ int robot::processThisRobot(const TKobukiData &robotdata)
         std::vector<XYQPoint> xyPointCloud;
         odom.compensateLidarScan(copyOfLaserData, xyPointCloud);
         // mapper.update(odom, copyOfLaserData);
+        std::cout << "Scan compensation complete, updating mapper..." << std::endl;
         mapper.update(xyPointCloud);
         plotMap();
         emit publishLidar(copyOfLaserData);

@@ -3,6 +3,7 @@
 
 #include "librobot/CKobuki.h"
 #include "librobot/rplidar.h"
+#include <opencv2/core/mat.hpp>
 #include <vector>
 
 class Odometry;
@@ -17,7 +18,9 @@ class Mapper
     const double WEAR_OFF_COEFF
         = 0.8; //after each iteration, this is the amount to which the registration count will reduce
     const double LIDAR_MIN_DIST = 0.1; // [m] - minimal valid LiDAR reading point
+
     std::vector<std::vector<uint16_t>> _map;
+    cv::Mat _map_cv;
     size_t _mid_point = 0;
     size_t _map_size = 0;
 

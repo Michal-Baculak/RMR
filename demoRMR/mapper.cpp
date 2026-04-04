@@ -11,6 +11,7 @@ void Mapper::init()
     for (size_t i = 0; i < _map_size; ++i) {
         _map.push_back(std::vector<uint16_t>(_map_size, 0));
     }
+    _map_cv = cv::Mat::zeros((int) _map_size, (int) _map_size, CV_16UC1);
 }
 
 bool Mapper::isInitialized()
@@ -21,7 +22,8 @@ bool Mapper::isInitialized()
 
 uint16_t &Mapper::getAt(int x, int y)
 {
-    return _map.at(_mid_point + x).at(_mid_point + y);
+    // return _map.at(_mid_point + x).at(_mid_point + y);
+    return _map_cv.at<uint16_t>(_mid_point + x, _mid_point + y);
 }
 
 uint16_t &Mapper::getAt(double x, double y)
@@ -69,5 +71,7 @@ size_t Mapper::getMapSize()
 
 uint16_t Mapper::getMapElement(size_t ix, size_t iy)
 {
-    return _map.at(ix).at(iy);
+    // uint16_t val = getAt((int) ix, (int) iy); // retard
+    return _map_cv.at<uint16_t>((int) ix, (int) iy);
+    // return _map.at(ix).at(iy);
 }
