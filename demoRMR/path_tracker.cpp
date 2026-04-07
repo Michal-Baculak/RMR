@@ -104,14 +104,22 @@ void PathTracker::update(Odometry odom)
 
 void PathTracker::updateVFH(Odometry odom, double safe_heading)
 {
-    double rho = 0.1 * POSITION_EPSILON + 0.9 * REGULATION_ZONE_DIST;
+    //double rho = 0.1 * POSITION_EPSILON + 0.9 * REGULATION_ZONE_DIST;
+    double rho = getDistToSetpoint(odom);
     double theta = odom.getRot();
     double alpha = wrap(safe_heading - theta);
     double beta = 0;
-    if (getDistToSetpoint(odom) < POSITION_EPSILON) {
-        std::cout << "Reactive navigation reached destination" << std::endl;
-        stop();
-        return;
+    // if (rho < POSITION_EPSILON) {
+    //     std::cout << "Reactive navigation reached destination " << rho << std::endl;
+    //     stop();
+    //     return;
+    // }
+
+    double heading_diff_abs = std::abs(alpha);
+    if (heading_diff_abs > PI / 4.0) {
+        rho = 0.1 * POSITION_EPSILON + 0.9 * REGULATION_ZONE_DIST;
+    } else {
+        rho = rho * (1.0 - (heading_diff_abs / (PI / 4.0)));
     }
     regulate(rho, alpha, beta);
 }

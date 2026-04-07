@@ -79,7 +79,7 @@ void MainWindow::paintEvent(QPaintEvent *event)
                 double sectorDeg = 360.0/numSectors;
 
                 for (int k = 0; k<numSectors; ++k){
-                    double startDeg = 90.0 + k * sectorDeg - sectorDeg / 2.0;
+                    double startDeg = 90.0 + k * sectorDeg;
 
                     QColor color = (_lastMHist[k] == 0) ? QColor(0, 255, 0, 80) : QColor(255, 0, 0, 80);
 

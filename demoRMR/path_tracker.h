@@ -22,7 +22,7 @@ class PathTracker
     bool is_running_ = false;
 
     const double V_MAX = 0.4;     // [m/s]
-    const double W_MAX = 3.14159; // [rad/s]
+    const double W_MAX = 3.14159/5; // [rad/s]
     const double POSITION_EPSILON
         = 0.015; // [m] if position error falls in this range, position is considered reached and controller stops
     const double POSITION_EPSILON_DYNAMIC
@@ -32,7 +32,7 @@ class PathTracker
     // it should hold that POSITION_EPSILON_DNYMIC > REGULATION_ZONE_DIST > POSITION_EPSILON > 0
     const double LOOKAHEAD_DIST = 0.30;               // added for VFH, consider removing
     const double ACCELERATION_MAX = 1 * 1;            // [m/s^2]
-    const double ANGULAR_ACCELERATION_MAX = 1 * 3.14; // [rad/s^2]
+    const double ANGULAR_ACCELERATION_MAX = 3 * 3.14; // [rad/s^2]
 
 public:
     void setSetpoint(double x, double y);

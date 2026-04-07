@@ -60,29 +60,73 @@ int robot::processThisRobot(const TKobukiData &robotdata)
 
     odom.update(robotdata);
 
-    if (path_tracker.isRunning()) {
-        std::vector<LaserData> localLaser;
+    std::vector<LaserData> localLaser;
+    {
+        std::lock_guard<std::mutex> lock(latestLaserMutex);
+        localLaser = copyOfLaserData;
+    }
+
+    if (path_tracker.isRunning() && !localLaser.empty())
+    {
+        double currentV = odom.getV();     // [m/s]
+        double currentW = odom.getOmega(); // [rad/s]
+        double rPhi     = odom.getRot();   // [rad] – globalny uhol robota
+
+        double dx = path_tracker.getSetpointX() - odom.getX();
+        double dy = path_tracker.getSetpointY() - odom.getY();
+        double targetAngle = std::atan2(dy, dx); // [-pi, pi]
+
+        std::optional<double> safeDir;
         {
-            std::lock_guard<std::mutex> lock(latestLaserMutex);
-            localLaser = copyOfLaserData;
+            std::lock_guard<std::mutex> lock(navMutex);
+            safeDir = nav.update(localLaser, rPhi, currentV, currentW, targetAngle);
         }
-        if (!localLaser.empty()) {
-            double currentV = odom.getV();       // [m/s]
-            double currentW = odom.getOmega();   // [rad/s]
 
-            double safeDir = nav.update(
-                odom.getX(), odom.getY(), odom.getRot(),
-                path_tracker.getSetpointX(), path_tracker.getSetpointY(),
-                localLaser,
-                currentV, currentW
-                );
+        if (!safeDir.has_value())
+        {
+            path_tracker.stop();
+        }
+        else {
+            path_tracker.updateVFH(odom, safeDir.value());
 
-            path_tracker.updateVFH(odom, safeDir);
-            auto command = path_tracker.getCommand();
+            auto cmd = path_tracker.getCommand();
 
-            setSpeed(command.first * 1000.0, command.second);
+            setSpeed(cmd.first * 1000.0, cmd.second);
+        }
+
+        // Vizualizacia histogramu (kazdy 5. tick)
+        // if (datacounter % 5 == 0)
+        {
+            std::lock_guard<std::mutex> lock(navMutex);
+            emit publishHistogram(nav.getLastMHist());
         }
     }
+
+
+
+    // if (path_tracker.isRunning()) {
+    //     std::vector<LaserData> localLaser;
+    //     {
+    //         std::lock_guard<std::mutex> lock(latestLaserMutex);
+    //         localLaser = copyOfLaserData;
+    //     }
+    //     if (!localLaser.empty()) {
+    //         double currentV = odom.getV();       // [m/s]
+    //         double currentW = odom.getOmega();   // [rad/s]
+
+    //         double safeDir = nav.update(
+    //             odom.getX(), odom.getY(), odom.getRot(),
+    //             path_tracker.getSetpointX(), path_tracker.getSetpointY(),
+    //             localLaser,
+    //             currentV, currentW
+    //             );
+
+    //         path_tracker.updateVFH(odom, safeDir);
+    //         auto command = path_tracker.getCommand();
+
+    //         setSpeed(command.first * 1000.0, command.second);
+    //     }
+    // }
 
 
     ///TU PISTE KOD... TOTO JE TO MIESTO KED NEVIETE KDE ZACAT,TAK JE TO NAOZAJ TU. AK AJ TAK NEVIETE, SPYTAJTE SA CVICIACEHO MA TU NATO STRING KTORY DA DO HLADANIA XXX
@@ -158,10 +202,10 @@ int robot::processThisLidar(const std::vector<LaserData>& laserData)
 
     emit publishLidar(copyOfLaserData);
    // update();//tento prikaz prinuti prekreslit obrazovku.. zavola sa paintEvent funkcia
-    {
-        std::lock_guard<std::mutex> lock(navMutex);
-        emit publishHistogram(nav.getLastMHist());
-    }
+    // {
+    //     std::lock_guard<std::mutex> lock(navMutex);
+    //     emit publishHistogram(nav.getLastMHist());
+    // }
 
     return 0;
 
