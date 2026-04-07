@@ -208,13 +208,13 @@ bool Mapper::floodFill(cv::Point start)
     return true;
 }
 
-std::vector<cv::Point> getKeypoints(cv::Point start)
-{
-    // start is for convenience, so we dont have to look for it
-    std::vector<cv::Point> key_indices;
-    bool goal_reached = false;
-    // TODO
-}
+// std::vector<cv::Point> getKeypoints(cv::Point start)
+// {
+//     // start is for convenience, so we dont have to look for it
+//     std::vector<cv::Point> key_indices;
+//     bool goal_reached = false;
+//     // TODO
+// }
 
 void Mapper::plan(Point from, Point to)
 {
