@@ -42,6 +42,8 @@ public:
   // tato funkcia fyzicky posiela hodnoty do robota
   void setSpeed(double forw, double rots);
   void plotMap();
+  void exportMap();
+  void importMap();
   signals:
   void publishPosition(double x, double y, double z, double omega, double v);
   void publishLidar(const std::vector<LaserData> &lidata);
@@ -53,6 +55,8 @@ public:
 #endif
 private:
     bool new_lidar_data = false;
+    std::mutex lidar_data_mutex;
+    std::mutex main_process_mutex;
 
     /// toto su vase premenne na vasu odometriu (pouzijem vlastne, diky)
     double x;

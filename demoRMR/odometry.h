@@ -3,12 +3,29 @@
 
 #include "librobot/CKobuki.h"
 #include "librobot/rplidar.h"
+#include <deque>
 #include <utility>
 #include <vector>
 
-struct Pose;
-struct Point;
-struct XYQPoint;
+struct Pose
+{
+    double x;
+    double y;
+    double phi;
+};
+
+struct Point
+{
+    double x;
+    double y;
+};
+
+struct XYQPoint
+{
+    Point p;
+    int scanQuality;
+    uint32_t timestamp;
+};
 
 class Odometry
 {
@@ -32,8 +49,8 @@ private:
 
     bool _isInitialized = false;
 
-    std::vector<std::pair<uint32_t, Pose>> _poseStack; // positions are saved latest (use deque)
-    const size_t POSE_STACK_MAX_SIZE = 15;             // Position -> 40Hz, LiDAR -> ??Hz
+    std::deque<std::pair<uint32_t, Pose>> _poseStack; // positions are saved latest (use deque)
+    const size_t POSE_STACK_MAX_SIZE = 15; // Position -> 40Hz, LiDAR -> 8Hz => need at least 5
 
 public:
     void update(TKobukiData robotData);
@@ -53,26 +70,6 @@ public:
     Pose getCurrentPoseEstimate(uint32_t currentTimestamp);
     Point laserToPoint(LaserData laser);
     Point laserToPoint(Pose observer, LaserData laser);
-};
-
-struct Pose
-{
-    double x;
-    double y;
-    double phi;
-};
-
-struct Point
-{
-    double x;
-    double y;
-};
-
-struct XYQPoint
-{
-    Point p;
-    int scanQuality;
-    uint32_t timestamp;
 };
 
 #endif // ODOMETRY_H
