@@ -3,9 +3,10 @@
 #include <QObject>
 #include <QWidget>
 #include "librobot/librobot.h"
+#include "lidarodometry.h"
+#include "mapper.h"
 #include "odometry.h"
 #include "path_tracker.h"
-#include "lidarodometry.h"
 #include "navigation.h"
 #include <mutex>
 
@@ -23,6 +24,7 @@ Q_DECLARE_METATYPE(cv::Mat)
 #ifndef DISABLE_SKELETON
 Q_DECLARE_METATYPE(skeleton)
 #endif
+
 Q_DECLARE_METATYPE(std::vector<LaserData>)
 class robot : public QObject {
   Q_OBJECT
@@ -33,9 +35,7 @@ public:
   LidarOdometry lidarOdom;
   Navigation nav;
   LaserData laserData;
-  std::mutex latestLaserMutex;
-  std::mutex navMutex;
-
+  Mapper mapper;
 
   void initAndStartRobot(std::string ipaddress);
 
@@ -45,7 +45,10 @@ public:
   void setSpeedVal(double forw, double rots);
   // tato funkcia fyzicky posiela hodnoty do robota
   void setSpeed(double forw, double rots);
-signals:
+  void plotMap();
+  void exportMap();
+  void importMap();
+  signals:
   void publishPosition(double x, double y, double z, double omega, double v);
   void publishLidar(const std::vector<LaserData> &lidata);
   void publishHistogram(const std::vector<int>& mHist);
@@ -56,6 +59,11 @@ signals:
   void publishSkeleton(const skeleton &skeledata);
 #endif
 private:
+    bool new_lidar_data = false;
+    std::mutex lidar_data_mutex;
+    std::mutex main_process_mutex;
+    std::mutex navMutex;
+
     /// toto su vase premenne na vasu odometriu (pouzijem vlastne, diky)
     double x;
     double y;

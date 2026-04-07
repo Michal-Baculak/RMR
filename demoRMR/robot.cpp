@@ -1,4 +1,7 @@
 #include "robot.h"
+#include "chrono"
+#include "opencv2/core/hal/interface.h"
+#include "opencv2/opencv.hpp"
 
 robot::robot(QObject *parent) : QObject(parent)
 {
@@ -13,7 +16,6 @@ qRegisterMetaType<skeleton>("skeleton");
 
 void robot::initAndStartRobot(std::string ipaddress)
 {
-
     forwardspeed=0;
     rotationspeed=0;
     ///setovanie veci na komunikaciu s robotom/lidarom/kamerou.. su tam adresa porty a callback.. laser ma ze sa da dat callback aj ako lambda.
@@ -28,6 +30,8 @@ void robot::initAndStartRobot(std::string ipaddress)
 #endif
     ///ked je vsetko nasetovane tak to tento prikaz spusti (ak nieco nieje setnute,tak to normalne nenastavi.cize ak napr nechcete kameru,vklude vsetky info o nej vymazte)
       robotCom.robotStart();
+
+      mapper.init();
 }
 
 void robot::setSpeedVal(double forw, double rots)
@@ -54,6 +58,18 @@ void robot::setSpeed(double forw, double rots)
 /// vola sa vzdy ked dojdu nove data z robota. nemusite nic riesit, proste sa to stane
 int robot::processThisRobot(const TKobukiData &robotdata)
 {
+    // check for concurrency with previous call
+    if (!main_process_mutex.try_lock()) {
+        std::cerr << "Failed to lock processThisRobot mutex, previous loop might have taken too "
+                     "long to execute"
+                  << std::endl;
+    } else {
+        main_process_mutex.unlock();
+    }
+
+    // mutex the shit out of this function
+    std::lock_guard<std::mutex> main_process_lock(main_process_mutex);
+
     ///tu mozete robit s datami z robota
     if (!odom.isInitialized())
         odom.init(robotdata);
@@ -61,10 +77,27 @@ int robot::processThisRobot(const TKobukiData &robotdata)
     odom.update(robotdata);
 
     std::vector<LaserData> localLaser;
+    // mutex LiDAR processing,
     {
-        std::lock_guard<std::mutex> lock(latestLaserMutex);
+        std::lock_guard<std::mutex> lidar_lock(lidar_data_mutex);
         localLaser = copyOfLaserData;
+        bool run_mapper = new_lidar_data;
+        if (run_mapper) {
+            std::vector<XYQPoint> xyPointCloud;
+            odom.compensateLidarScan(copyOfLaserData, xyPointCloud);
+            // mapper.update(odom, copyOfLaserData);
+            mapper.update(xyPointCloud);
+            plotMap();
+            emit publishLidar(copyOfLaserData);
+            new_lidar_data = false;
+        }
     }
+    // if (path_tracker.isRunning()) {
+    //     path_tracker.update(odom);
+    //     auto command = path_tracker.getCommand();
+    //     std::cout << "Setting v to " << command.first << " m/s and w to " << command.second
+    //               << "rad/s" << std::endl;
+    //     setSpeed(command.first * 1000, command.second);
 
     if (path_tracker.isRunning() && !localLaser.empty())
     {
@@ -101,33 +134,6 @@ int robot::processThisRobot(const TKobukiData &robotdata)
             emit publishHistogram(nav.getLastMHist());
         }
     }
-
-
-
-    // if (path_tracker.isRunning()) {
-    //     std::vector<LaserData> localLaser;
-    //     {
-    //         std::lock_guard<std::mutex> lock(latestLaserMutex);
-    //         localLaser = copyOfLaserData;
-    //     }
-    //     if (!localLaser.empty()) {
-    //         double currentV = odom.getV();       // [m/s]
-    //         double currentW = odom.getOmega();   // [rad/s]
-
-    //         double safeDir = nav.update(
-    //             odom.getX(), odom.getY(), odom.getRot(),
-    //             path_tracker.getSetpointX(), path_tracker.getSetpointY(),
-    //             localLaser,
-    //             currentV, currentW
-    //             );
-
-    //         path_tracker.updateVFH(odom, safeDir);
-    //         auto command = path_tracker.getCommand();
-
-    //         setSpeed(command.first * 1000.0, command.second);
-    //     }
-    // }
-
 
     ///TU PISTE KOD... TOTO JE TO MIESTO KED NEVIETE KDE ZACAT,TAK JE TO NAOZAJ TU. AK AJ TAK NEVIETE, SPYTAJTE SA CVICIACEHO MA TU NATO STRING KTORY DA DO HLADANIA XXX
 
@@ -168,20 +174,17 @@ int robot::processThisRobot(const TKobukiData &robotdata)
 /// vola sa ked dojdu nove data z lidaru
 int robot::processThisLidar(const std::vector<LaserData>& laserData)
 {
-    {
-        std::lock_guard<std::mutex> lock(latestLaserMutex);
-        copyOfLaserData=laserData;
-    }
+    std::lock_guard<std::mutex> lidar_lock(lidar_data_mutex);
+    new_lidar_data = true;
+    copyOfLaserData = laserData;
 
-    // if (path_tracker.isRunning()) {
-
-    //         double safeDir = nav.update(odom.getX(), odom.getY(), odom.getRot(), path_tracker.getSetpointX(), path_tracker.getSetpointY(), copyOfLaserData);
-    //         path_tracker.updateVFH(odom, safeDir);
-    //         auto command = path_tracker.getCommand();
-    //         setSpeed(command.first * 1000, command.second);
-    //     }
-
-    //nav.printLaserData(copyOfLaserData);
+    // ************** MOVED INTO PROCESSROBOT ***************************
+    // std::vector<XYQPoint> xyPointCloud;
+    // Odometry odom_copy = odom;
+    // odom_copy.compensateLidarScan(copyOfLaserData, xyPointCloud);
+    // mapper.update(odom_copy, copyOfLaserData);
+    // plotMap();
+    // ************** MOVED INTO PROCESSROBOT ***************************
 
     // ******************************** LiDAR Odometry ****************************************
     // if(!lidarOdom.isInitialized())
@@ -200,25 +203,51 @@ int robot::processThisLidar(const std::vector<LaserData>& laserData)
 
     // ******************************** LiDAR Odometry ****************************************
 
-    emit publishLidar(copyOfLaserData);
-   // update();//tento prikaz prinuti prekreslit obrazovku.. zavola sa paintEvent funkcia
-    // {
-    //     std::lock_guard<std::mutex> lock(navMutex);
-    //     emit publishHistogram(nav.getLastMHist());
-    // }
-
+    // emit publishLidar(copyOfLaserData);
+    // update();//tento prikaz prinuti prekreslit obrazovku.. zavola sa paintEvent funkcia
     return 0;
-
 }
 
-  #ifndef DISABLE_OPENCV
+cv::Mat getMatFromMap(Mapper mapper)
+{
+    cv::Mat mat_matrix = mapper.getMapFiltered();
+    // mat_matrix.create(map_size, map_size, 0);
+    // for (size_t i = 0; i < map_size; ++i) {
+    //     for (size_t j = 0; j < map_size; ++j) {
+    //         mat_matrix.at<uint8_t>(i, j) = mapper.getMapElement(i, j);
+    //     }
+    // }
+    cv::Mat rotated;
+    cv::rotate(mat_matrix, rotated, cv::ROTATE_90_COUNTERCLOCKWISE);
+    cv::Mat resized;
+    size_t map_size = mapper.getMapSize();
+    cv::resize(rotated, resized, cv::Size(map_size * 2, map_size * 2));
+
+    return rotated;
+}
+
+void robot::plotMap()
+{
+    cv::imshow("Map", getMatFromMap(mapper));
+}
+
+void robot::exportMap()
+{
+    cv::imwrite("map.bmp", mapper.getMapFiltered());
+}
+
+void robot::importMap()
+{
+    cv::Mat map = cv::imread("map.bmp", cv::IMREAD_GRAYSCALE);
+    mapper.init(map);
+}
+#ifndef DISABLE_OPENCV
 ///toto je calback na data z kamery, ktory ste podhodili robotu vo funkcii initAndStartRobot
 /// vola sa ked dojdu nove data z kamery
 int robot::processThisCamera(cv::Mat cameraData)
 {
-
-    cameraData.copyTo(frame[(actIndex+1)%3]);//kopirujem do nasej strukury
-    actIndex=(actIndex+1)%3;//aktualizujem kde je nova fotka
+    cameraData.copyTo(frame[(actIndex + 1) % 3]); //kopirujem do nasej strukury
+    actIndex = (actIndex + 1) % 3;                //aktualizujem kde je nova fotka
 
     emit publishCamera(frame[actIndex]);
     return 0;

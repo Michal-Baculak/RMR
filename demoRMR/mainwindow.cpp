@@ -359,3 +359,20 @@ void MainWindow::on_pushButton_11_clicked()
     _robot.path_tracker.stop();
     _robot.setSpeed(0, 0);
 }
+
+void MainWindow::on_pushButton_12_clicked()
+{
+    _robot.exportMap();
+}
+
+void MainWindow::on_pushButton_13_clicked()
+{
+    _robot.importMap();
+}
+
+void MainWindow::on_pushButton_14_clicked()
+{
+    Point cur_position = {_robot.odom.getX(), _robot.odom.getY()};
+    Point goal_position = {_setpointX, _setpointY};
+    _robot.mapper.plan(cur_position, goal_position);
+}
