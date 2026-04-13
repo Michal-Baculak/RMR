@@ -1,31 +1,12 @@
 #ifndef ODOMETRY_H
 #define ODOMETRY_H
 
+#include "custom_types.h"
 #include "librobot/CKobuki.h"
 #include "librobot/rplidar.h"
 #include <deque>
 #include <utility>
 #include <vector>
-
-struct Pose
-{
-    double x;
-    double y;
-    double phi;
-};
-
-struct Point
-{
-    double x;
-    double y;
-};
-
-struct XYQPoint
-{
-    Point p;
-    int scanQuality;
-    uint32_t timestamp;
-};
 
 class Odometry
 {

@@ -32,6 +32,7 @@ qt_add_executable(${PROJECT_NAME} WIN32
     mapper.h
     utility.h
     utility.cpp
+    custom_types.h
 )
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE ROBOT_LIBRARY)

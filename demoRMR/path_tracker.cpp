@@ -2,11 +2,7 @@
 #include "algorithm"
 #include "odometry.h"
 
-void PathTracker::setSetpoint(double x, double y)
-{
-    setpointX_ = x;
-    setpointY_ = y;
-}
+// void PathTracker::pushSetpoint()
 
 void PathTracker::regulate(double rho, double alpha, double beta)
 {
@@ -56,8 +52,6 @@ void PathTracker::regulate(double rho, double alpha, double beta)
     // clamped speed commands
     double v_clamped = std::clamp(v, -V_MAX, V_MAX);
     double w_clamped = std::clamp(w, -W_MAX, W_MAX);
-    // command_v_ = std::clamp(v, -V_MAX, V_MAX);
-    // command_w_ = std::clamp(w, -W_MAX, W_MAX);
 
     std::cout << "after clamping: v = " << v_clamped << ", w  = " << w_clamped << std::endl;
 
@@ -76,10 +70,8 @@ void PathTracker::regulate(double rho, double alpha, double beta)
         std::cout << "Adjusting velocity to match curvature..." << std::endl;
         double v_optimal = w_clamped / k;
         double a_optimal = (v_optimal - command_v_) / SAMPLING_PERIOD;
-        double a_limited = std::clamp(a_optimal, -ACCELERATION_MAX, ACCELERATION_MAX);
+        double a_limited = std::clamp(a_optimal, -BRAKING_MAX, ACCELERATION_MAX);
         command_v_new = command_v_ + a_limited * SAMPLING_PERIOD;
-        // double a_optimal =
-        // command_v_new = w_clamped / k;
     }
 
     if (abs(w_clamped / v_clamped) > abs(k)) {
@@ -96,16 +88,16 @@ void PathTracker::regulate(double rho, double alpha, double beta)
 
 double PathTracker::getDistToSetpoint(Odometry odom)
 {
-    double dx = setpointX_ - odom.getX();
-    double dy = setpointY_ - odom.getY();
+    double dx = getSetpointX() - odom.getX();
+    double dy = getSetpointY() - odom.getY();
     return sqrt(dx * dx + dy * dy);
 }
 
 void PathTracker::update(Odometry odom)
 {
     double theta = odom.getRot();
-    double dx = setpointX_ - odom.getX();
-    double dy = setpointY_ - odom.getY();
+    double dx = getSetpointX() - odom.getX();
+    double dy = getSetpointY() - odom.getY();
     double rho = sqrt(dx * dx + dy * dy);
     double alpha = wrap(-theta + atan2(dy, dx));
     double beta = -theta - alpha;
@@ -124,6 +116,15 @@ void PathTracker::updateVFH(Odometry odom, double safe_heading)
 {
     //double rho = 0.1 * POSITION_EPSILON + 0.9 * REGULATION_ZONE_DIST;
     double rho = getDistToSetpoint(odom);
+
+    // if we reached checkpoint
+    while (setpoints.size() > 1 && rho < POSITION_EPSILON_DYNAMIC) {
+        std::cout << "Checkpoint along trajectory reached " << std::endl;
+        //pop the checkpoint
+        setpoints.pop_front();
+        rho = getDistToSetpoint(odom);
+    }
+
     double theta = odom.getRot();
     double alpha = wrap(safe_heading - theta);
     double beta = 0;
@@ -170,6 +171,7 @@ void PathTracker::stop()
     is_running_ = false;
     command_v_ = 0;
     command_w_ = 0;
+    setpoints.clear();
 }
 
 bool PathTracker::isRunning()
@@ -185,106 +187,29 @@ double PathTracker::wrap(double x)
     return x - PI;
 }
 
-// void PathTracker::updateVFH(Odometry odom, double safeTarget)
-// {
-//     double theta = odom.getRot();
-//     double dx = setpointX_ - odom.getX();
-//     double dy = setpointY_ - odom.getY();
-//     double rho = std::sqrt(dx * dx + dy * dy);
+void PathTracker::setTrajectory(const std::vector<Point> &trajectory)
+{
+    setpoints = std::deque<Point>(trajectory.begin(), trajectory.end());
+}
 
-//     double alpha = wrap(-theta + safeTarget);
-//     double beta = 0;
+void PathTracker::setSetpoint(double x, double y)
+{
+    setpoints.push_front({x, y});
+    // setpointX_ = x;
+    // setpointY_ = y;
+}
 
-//     double v = k_rho_ * rho;
-//     double w = k_alpha_ * alpha + k_beta_ * beta;
+void PathTracker::setGoalSetpoint(double x, double y)
+{
+    setpoints.push_back({x, y});
+}
 
-//     // if (rho < POSITION_EPSILON) {
-//     //     stop();
-//     //     return;
-//     // }
+double PathTracker::getSetpointX()
+{
+    return setpoints.at(0).x;
+}
 
-//     // double k = w / v;
-
-//     // if (rho > REGULATION_ZONE_DIST) {
-//     //     // profile velocity
-//     //     double profiled_vel = getProfiledVelocity(rho, REGULATION_ZONE_DIST);
-//     //     if (profiled_vel > v)
-//     //         v = profiled_vel;
-//     // } else
-//     //     std::cout << "Near target, applying precise position regulation..." << std::endl;
-
-//     // double dt = 0.01;
-//     // double a = (v - command_v_) / dt;
-//     // double epsilon = (w - command_w_) / dt;
-
-//     // double a_clamped = std::clamp((v - command_v_) / dt, -ACCELERATION_MAX, ACCELERATION_MAX);
-//     // double epsilon_clamped = std::clamp((w - command_w_) / dt, -ANGULAR_ACCELERATION_MAX, ANGULAR_ACCELERATION_MAX);
-
-//     // command_v_ = std::clamp(command_v_ + dt * a_clamped, -V_MAX, V_MAX);
-//     // command_w_ = std::clamp(command_w_ + dt * epsilon_clamped, -W_MAX, W_MAX);
-
-//     // // curvature adjust commands
-//     // if (k == 0)
-//     //     // this means w = 0, we dont need cross adjusting
-//     //     return;
-
-//     // std::cout << "curvature after clamping speeds is " << command_w_ / command_v_ << std::endl;
-//     // if (abs(command_w_ / command_v_) < abs(k)) {
-//     //     // v is relatively higher, make it match the curvature:
-//     //     // k = w/v
-//     //     // v = w/k
-//     //     std::cout << "Adjusting velocity to match curvature..." << std::endl;
-//     //     command_v_ = command_w_ / k;
-//     // }
-
-//     // if (abs(command_w_ / command_v_) > abs(k)) {
-//     //     // w is relatively higher, lower it
-//     //     // k = w/v
-//     //     // w = k*v
-//     //     std::cout << "Adjusting angular velocity to match curvature..." << std::endl;
-//     //     command_w_ = command_v_ * k;
-//     // }
-
-//     double lookahead = std::min(rho, LOOKAHEAD_DIST);
-
-//     double localTargetX = odom.getX() + lookahead * std::cos(safeTarget);
-//     double localTargetY = odom.getY() + lookahead * std::sin(safeTarget);
-
-//     double ldx   = localTargetX - odom.getX();
-//     double ldy   = localTargetY - odom.getY();
-//     double lrho  = std::sqrt(ldx * ldx + ldy * ldy); // ≈ lookahead
-
-//     if (rho > REGULATION_ZONE_DIST) {
-//         double profiled = getProfiledVelocity(rho, REGULATION_ZONE_DIST);
-//         if (profiled > v) v = profiled;
-//     }
-
-//     const double dt = 0.01; //
-
-//     double a       = std::clamp((v - command_v_) / dt, -ACCELERATION_MAX,       ACCELERATION_MAX);
-//     double epsilon = std::clamp((w - command_w_) / dt, -ANGULAR_ACCELERATION_MAX, ANGULAR_ACCELERATION_MAX);
-
-//     v = command_v_ + dt * a;
-//     w = command_w_ + dt * epsilon;
-
-//     command_v_ = std::clamp(v, -V_MAX, V_MAX);
-//     command_w_ = std::clamp(w, -W_MAX, W_MAX);
-
-//     if (std::abs(command_v_) > 1e-6) {
-//         double k_desired = w / v;
-
-//         if (std::abs(k_desired) > 1e-9) {
-//             double k_actual = command_w_ / command_v_;
-
-//             if (std::abs(k_actual) < std::abs(k_desired)) {
-
-//                 command_v_ = command_w_ / k_desired;
-//                 command_v_ = std::clamp(command_v_, -V_MAX, V_MAX);
-//             } else if (std::abs(k_actual) > std::abs(k_desired)) {
-
-//                 command_w_ = command_v_ * k_desired;
-//                 command_w_ = std::clamp(command_w_, -W_MAX, W_MAX);
-//             }
-//         }
-//     }
-// }
+double PathTracker::getSetpointY()
+{
+    return setpoints.at(0).y;
+}

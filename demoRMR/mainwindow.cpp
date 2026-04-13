@@ -350,7 +350,7 @@ void MainWindow::on_pushButton_10_clicked()
     //TODO: set the setpoint to the PathTracker and execute
     //TODO: later we only set the setpoint to the PathPlanner, let it compute the trajectory,
     // save the trajectory to PathTracker and then execute the sequence.
-    _robot.path_tracker.setSetpoint(_setpointX, _setpointY);
+    _robot.path_tracker.setGoalSetpoint(_setpointX, _setpointY);
     _robot.path_tracker.start();
 }
 

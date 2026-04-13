@@ -26,7 +26,7 @@ private:
     const double R_MIN_STATIC = 0.0;
     const int S_MAX = 20;
     const double RADIUS = 0.17; // polomer robota
-    const double WIN_SIZE = 0.75;
+    const double WIN_SIZE = 0.5;
 
     // threshold values
     const double _t_low = 10;
