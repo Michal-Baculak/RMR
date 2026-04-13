@@ -17,6 +17,8 @@ public:
     // double update(double rX, double rY, double rPhi, double targetX, double targetY, const std::vector<LaserData> &laserData, double currentV, double currentW);
     std::optional<double> update(const std::vector<LaserData> &laserData, double rPhi, double currentV, double currentW, double targetAngle);
     const std::vector<int>& getLastMHist() const { return _last_mHist; }
+    bool isDirWithinCurrentSector(double dir, double robot_rot) const;
+
 private:
     const int NUM_SECTORS = 120;
     const double SIGMA = 3.0; // rozlisovacia schopnost (pocet stupnov na sektor)
@@ -48,7 +50,7 @@ private:
     int angleToSector(double angle_deg) const;
     double sectorToAngle(int k) const;
     int selectBestSector(const std::vector<int> &candidates,int k_target, int k_robot_heading) const;
-
+    double sectorToSafeHeading(int sector, double robot_angle_deg) const;
     std::vector<int> _last_mHist;
 };
 

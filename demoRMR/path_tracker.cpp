@@ -16,12 +16,12 @@ void PathTracker::regulate(double rho, double alpha, double beta)
     std::cout << "***************Position Controller***************" << std::endl;
     std::cout << "P controller suggests v = " << v << ", w = " << w << std::endl;
 
-    if (rho < POSITION_EPSILON) {
-        stop();
-        std::cout << "Position error " << rho << "is under tolerance: " << POSITION_EPSILON
-                  << ", stopping,..." << std::endl;
-        return;
-    }
+    // if (rho < POSITION_EPSILON) {
+    //     stop();
+    //     std::cout << "Position error " << rho << "is under tolerance: " << POSITION_EPSILON
+    //               << ", stopping,..." << std::endl;
+    //     return;
+    // }
 
     // determine path curvature - we want to preserve that and only adjust speed
     double k = w / v; // v is never zero here
@@ -54,33 +54,44 @@ void PathTracker::regulate(double rho, double alpha, double beta)
     std::cout << "smooth next velocity is v = " << v << ", w = " << w << std::endl;
 
     // clamped speed commands
-    command_v_ = std::clamp(v, -V_MAX, V_MAX);
-    command_w_ = std::clamp(w, -W_MAX, W_MAX);
+    double v_clamped = std::clamp(v, -V_MAX, V_MAX);
+    double w_clamped = std::clamp(w, -W_MAX, W_MAX);
+    // command_v_ = std::clamp(v, -V_MAX, V_MAX);
+    // command_w_ = std::clamp(w, -W_MAX, W_MAX);
 
-    std::cout << "after clamping: v = " << command_v_ << ", w  = " << command_w_ << std::endl;
+    std::cout << "after clamping: v = " << v_clamped << ", w  = " << w_clamped << std::endl;
 
     // curvature adjust commands
     if (k == 0)
         // this means w = 0, we dont need cross adjusting
         return;
 
-    std::cout << "curvature after clamping speeds is " << command_w_ / command_v_ << std::endl;
-    if (abs(command_w_ / command_v_) < abs(k)) {
+    double command_v_new = v_clamped;
+    double command_w_new = w_clamped;
+    std::cout << "curvature after clamping speeds is " << w_clamped / v_clamped << std::endl;
+    if (abs(w_clamped / v_clamped) < abs(k)) {
         // v is relatively higher, make it match the curvature:
         // k = w/v
         // v = w/k
         std::cout << "Adjusting velocity to match curvature..." << std::endl;
-        command_v_ = command_w_ / k;
+        double v_optimal = w_clamped / k;
+        double a_optimal = (v_optimal - command_v_) / SAMPLING_PERIOD;
+        double a_limited = std::clamp(a_optimal, -ACCELERATION_MAX, ACCELERATION_MAX);
+        command_v_new = command_v_ + a_limited * SAMPLING_PERIOD;
+        // double a_optimal =
+        // command_v_new = w_clamped / k;
     }
 
-    if (abs(command_w_ / command_v_) > abs(k)) {
-        // w is relatively higher, lower it
+    if (abs(w_clamped / v_clamped) > abs(k)) {
+        // w is relatively higher, lower it? No, we can allow it
+
         // k = w/v
         // w = k*v
-        std::cout << "Adjusting angular velocity to match curvature..." << std::endl;
-        command_w_ = command_v_ * k;
+        // std::cout << "Adjusting angular velocity to match curvature..." << std::endl;
+        command_w_new = v_clamped * k;
     }
-    // std::cout << "resulting command_v: " <<
+    command_w_ = command_w_new;
+    command_v_ = command_v_new;
 }
 
 double PathTracker::getDistToSetpoint(Odometry odom)
@@ -99,6 +110,13 @@ void PathTracker::update(Odometry odom)
     double alpha = wrap(-theta + atan2(dy, dx));
     double beta = -theta - alpha;
 
+    if (rho < POSITION_EPSILON) {
+        stop();
+        std::cout << "Position error " << rho << "is under tolerance: " << POSITION_EPSILON
+                  << ", stopping,..." << std::endl;
+        return;
+    }
+
     regulate(rho, alpha, beta);
 }
 
@@ -109,11 +127,12 @@ void PathTracker::updateVFH(Odometry odom, double safe_heading)
     double theta = odom.getRot();
     double alpha = wrap(safe_heading - theta);
     double beta = 0;
-    // if (rho < POSITION_EPSILON) {
-    //     std::cout << "Reactive navigation reached destination " << rho << std::endl;
-    //     stop();
-    //     return;
-    // }
+
+    if (rho < POSITION_EPSILON) {
+        std::cout << "Reactive navigation reached destination " << rho << std::endl;
+        stop();
+        return;
+    }
 
     double heading_diff_abs = std::abs(alpha);
     if (heading_diff_abs > PI / 4.0) {

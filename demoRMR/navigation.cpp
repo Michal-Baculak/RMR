@@ -1,6 +1,5 @@
 #include "navigation.h"
-
-
+#include "utility.h"
 
 Navigation::Navigation()
     : _prev_binary_hist(NUM_SECTORS, 0)
@@ -32,12 +31,12 @@ std::optional<double> Navigation::update(const std::vector<LaserData>  &laserDat
 
     _prev_binary_hist = bHist;
 
-    std::cout << "bHist = (";
-    for (int k = 0; k < NUM_SECTORS; k++)
-    {
-        std::cout << bHist[k] << ", ";
-    }
-    std::cout << ")" << bHist.size() << std::endl;
+    // std::cout << "bHist = (";
+    // for (int k = 0; k < NUM_SECTORS; k++)
+    // {
+    //     std::cout << bHist[k] << ", ";
+    // }
+    // std::cout << ")" << bHist.size() << std::endl;
 
     // -----------------------------------Maskovany Histogram-----------------------------------
 
@@ -113,12 +112,12 @@ std::optional<double> Navigation::update(const std::vector<LaserData>  &laserDat
         // }
     }
 
-    std::cout << "mHist = (";
-    for (int k = 0; k < NUM_SECTORS; k++)
-    {
-        std::cout << mHist[k] << (k < NUM_SECTORS - 1 ? ", " : " ");
-    }
-    std::cout << ")" << mHist.size() << std::endl;
+    // std::cout << "mHist = (";
+    // for (int k = 0; k < NUM_SECTORS; k++)
+    // {
+    //     std::cout << mHist[k] << (k < NUM_SECTORS - 1 ? ", " : " ");
+    // }
+    // std::cout << ")" << mHist.size() << std::endl;
     _last_mHist = mHist;
 
     // -------------------------------Kandidatske smery------------------
@@ -148,14 +147,16 @@ std::optional<double> Navigation::update(const std::vector<LaserData>  &laserDat
 
     _prev_dir = best_k;
 
-    double local_best_deg = sectorToAngle(best_k);
-    double global_best_deg = local_best_deg + robotAngle_deg;
+    double safe_heading_rad = sectorToSafeHeading(best_k, robotAngle_deg);
 
-    global_best_deg = std::fmod(global_best_deg, 360.0);
-    if (global_best_deg > 180.0) global_best_deg -= 360.0;
-    if (global_best_deg < -180.0) global_best_deg += 360.0;
+    // double local_best_deg = sectorToAngle(best_k);
+    // double global_best_deg = local_best_deg + robotAngle_deg;
 
-    double safe_heading_rad = global_best_deg * PI / 180.0;
+    // global_best_deg = std::fmod(global_best_deg, 360.0);
+    // if (global_best_deg > 180.0) global_best_deg -= 360.0;
+    // if (global_best_deg < -180.0) global_best_deg += 360.0;
+
+    // double safe_heading_rad = global_best_deg * PI / 180.0;
 
     std::cout << "[VFH+] k_target=" << k_target
            << " best_k=" << best_k
@@ -306,6 +307,21 @@ double Navigation::sectorToAngle(int k) const
     return (k + 0.5) * SIGMA;
 }
 
+double Navigation::sectorToSafeHeading(int sector, double robot_angle_deg) const
+{
+    double local_best_deg = sectorToAngle(sector);
+    double global_best_deg = local_best_deg + robot_angle_deg;
+
+    global_best_deg = std::fmod(global_best_deg, 360.0);
+    if (global_best_deg > 180.0)
+        global_best_deg -= 360.0;
+    if (global_best_deg < -180.0)
+        global_best_deg += 360.0;
+
+    double safe_heading_rad = global_best_deg * PI / 180.0;
+    return safe_heading_rad;
+}
+
 int Navigation::selectBestSector(const std::vector<int> &candidates, int k_target, int k_robot_heading) const
 {
     int best_k = candidates[0];
@@ -325,4 +341,12 @@ int Navigation::selectBestSector(const std::vector<int> &candidates, int k_targe
     }
 
     return best_k;
+}
+
+bool Navigation::isDirWithinCurrentSector(double dir, double robot_rot) const
+{
+    // safe heading is the middle of the current sector
+    double safe_heading = sectorToSafeHeading(_prev_dir, robot_rot * PI / 180.0);
+    double angle_diff = utility::wrap(dir - safe_heading);
+    return abs(angle_diff) < SIGMA / 2;
 }

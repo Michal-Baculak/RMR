@@ -120,6 +120,8 @@ int robot::processThisRobot(const TKobukiData &robotdata)
             path_tracker.stop();
         }
         else {
+            std::cout << "Is current heading safe? " << nav.isDirWithinCurrentSector(rPhi, rPhi)
+                      << std::endl;
             path_tracker.updateVFH(odom, safeDir.value());
 
             auto cmd = path_tracker.getCommand();
