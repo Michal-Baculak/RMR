@@ -213,14 +213,9 @@ int robot::processThisLidar(const std::vector<LaserData>& laserData)
 cv::Mat getMatFromMap(Mapper mapper)
 {
     cv::Mat mat_matrix = mapper.getMapFiltered();
-    // mat_matrix.create(map_size, map_size, 0);
-    // for (size_t i = 0; i < map_size; ++i) {
-    //     for (size_t j = 0; j < map_size; ++j) {
-    //         mat_matrix.at<uint8_t>(i, j) = mapper.getMapElement(i, j);
-    //     }
-    // }
     cv::Mat rotated;
-    cv::rotate(mat_matrix, rotated, cv::ROTATE_90_COUNTERCLOCKWISE);
+    cv::flip(mat_matrix, rotated, 0);
+    // cv::rotate(mat_matrix, rotated, cv::ROTATE_90_COUNTERCLOCKWISE);
     cv::Mat resized;
     size_t map_size = mapper.getMapSize();
     cv::resize(rotated, resized, cv::Size(map_size * 2, map_size * 2));

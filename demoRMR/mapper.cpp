@@ -36,7 +36,7 @@ bool Mapper::isInitialized()
 
 uint16_t &Mapper::getAt(int x, int y)
 {
-    return _map_cv.at<uint16_t>(_mid_point + x, _mid_point + y);
+    return _map_cv.at<uint16_t>(_mid_point + y, _mid_point + x);
 }
 
 uint16_t &Mapper::getAt(double x, double y)
@@ -122,7 +122,8 @@ void Mapper::clearPlan()
     // clear even inflated obstacles - map might be updated
     cv::Mat mask = (_map_cv >= ID_OBSTACLE_INFLATED);
     _map_cv.setTo(0, mask);
-    isPlanned = false;
+    path_plan.clear();
+    is_planned = false;
 }
 
 std::vector<cv::Point> Mapper::getElementsWithinDistance(cv::Point from, int distance) const
@@ -175,7 +176,8 @@ bool Mapper::floodFillIteration(std::vector<cv::Point> &idxs_to_check,
                                 uint16_t level)
 {
     for (cv::Point pt_main : idxs_to_check) {
-        std::vector<cv::Point> neighbours = getElementsWithinDistance(pt_main, 1);
+        std::vector<cv::Point> neighbours = get4Neighborhood(
+            pt_main); //getElementsWithinDistance(pt_main, 1);
         for (cv::Point neighbour : neighbours) {
             uint16_t &val = _map_cv.at<uint16_t>(neighbour);
             if (val < ID_OBSTACLE) {
@@ -188,6 +190,7 @@ bool Mapper::floodFillIteration(std::vector<cv::Point> &idxs_to_check,
             }
         }
     }
+    return false;
 }
 
 bool Mapper::floodFill(cv::Point start)
@@ -199,7 +202,7 @@ bool Mapper::floodFill(cv::Point start)
     bool finished = false;
     do {
         pts_updated.clear();
-        finished = floodFillIteration(pts_to_check, pts_updated, ID_PLANNING_RANGE_START);
+        finished = floodFillIteration(pts_to_check, pts_updated, level);
         pts_to_check = pts_updated;
         if (!finished && level == 0xFFFF)
             return false;
@@ -208,32 +211,112 @@ bool Mapper::floodFill(cv::Point start)
     return true;
 }
 
-// std::vector<cv::Point> getKeypoints(cv::Point start)
-// {
-//     // start is for convenience, so we dont have to look for it
-//     std::vector<cv::Point> key_indices;
-//     bool goal_reached = false;
-//     // TODO
-// }
+std::vector<cv::Point> Mapper::getKeypoints(cv::Point goal)
+{
+    std::vector<cv::Point> key_indices;
+
+    cv::Point current = goal;
+
+    // direction of previous movement during backtracking
+    cv::Point prev_dir{0, 0};
+    bool first_step = true;
+
+    while (_map_cv.at<uint16_t>(current) != ID_START_POS) {
+        std::vector<cv::Point> neighbours = getElementsWithinDistance(current, 1);
+
+        cv::Point next = current;
+        uint16_t best_val = 0xFFFF;
+        bool found = false;
+
+        for (const auto &nb : neighbours) {
+            if (nb == current)
+                continue;
+
+            uint16_t val = _map_cv.at<uint16_t>(nb);
+
+            // valid path tile = lower wavefront value
+            if ((val >= ID_PLANNING_RANGE_START || val == ID_START_POS) && val < best_val) {
+                best_val = val;
+                next = nb;
+                found = true;
+            }
+        }
+
+        if (!found) {
+            std::cerr << "Path reconstruction failed!" << std::endl;
+            return key_indices;
+        }
+
+        // normalized direction step (-1, 0, 1)
+        cv::Point dir{next.x - current.x, next.y - current.y};
+
+        // store corner tile whenever direction changes
+        if (!first_step && dir != prev_dir) {
+            key_indices.push_back(current);
+        }
+
+        prev_dir = dir;
+        current = next;
+        first_step = false;
+    }
+    // reverse so output goes start -> goal
+    std::reverse(key_indices.begin(), key_indices.end());
+
+    return key_indices;
+}
 
 void Mapper::plan(Point from, Point to)
 {
-    if (isPlanned) {
-        // clear map
-        clearPlan();
-    }
+    clearPlan();
+    is_planned = false;
     inflateObstacles(0.2);
-    cv::Mat inflated_map = (_map_cv == ID_OBSTACLE_INFLATED);
-    cv::imshow("inflated obstacles", inflated_map);
 
     getAt(from.x, from.y) = ID_START_POS;
     getAt(to.x, to.y) = ID_GOAL_POS;
+
+    auto map_pt = pointToMapIndex(to);
+    std::cout << "I set the goal to " << ID_GOAL_POS << std::endl;
+    std::cout << "This is what I read at goal: " << _map_cv.at<uint16_t>(map_pt) << std::endl;
 
     bool success = floodFill(pointToMapIndex(from));
     if (!success)
         return;
 
-    // TODO...
-    // find key waypoints
-    isPlanned = success;
+    // Extract only planning values
+    cv::Mat flood_vis;
+    _map_cv.convertTo(flood_vis, CV_8UC1, 1);
+
+    cv::imshow("Flood Fill Values", flood_vis);
+
+    auto key_tiles = getKeypoints(pointToMapIndex(to));
+
+    if (key_tiles.empty())
+        return;
+
+    path_plan.reserve(key_tiles.size());
+    for (const auto &tile : key_tiles) {
+        path_plan.push_back(mapIndexToPoint(tile));
+    }
+    path_plan.push_back(to);
+    is_planned = success;
+}
+
+const std::vector<Point> &Mapper::getPathPlan() const
+{
+    return path_plan;
+}
+
+std::vector<cv::Point> Mapper::get4Neighborhood(cv::Point from) const
+{
+    std::vector<cv::Point> output;
+    output.reserve(4);
+    if (from.x > 0)
+        output.push_back({from.x - 1, from.y});
+    if (from.x < _map_size - 1)
+        output.push_back({from.x + 1, from.y});
+    if (from.y > 0)
+        output.push_back({from.x, from.y - 1});
+    if (from.y < _map_size - 1)
+        output.push_back({from.x, from.y + 1});
+    return output;
 }

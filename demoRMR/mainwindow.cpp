@@ -12,10 +12,6 @@ MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
-
-    //tu je napevno nastavena ip. treba zmenit na to co ste si zadali do text boxu alebo nejaku inu pevnu. co bude spravna
-    // ipaddress
-    // = "192.168.1.11"; //192.168.1.11toto je na niektory realny robot.. na lokal budete davat "127.0.0.1"
     on_IPComboBox_currentIndexChanged(0);
 
     ui->setupUi(this);
@@ -26,11 +22,8 @@ MainWindow::MainWindow(QWidget *parent) :
 
 #endif
 
-
     datacounter=0;
     ui->widget->installEventFilter(this);
-
-    _robot.path_tracker.setSetpoint(_setpointX, _setpointY);
 }
 
 MainWindow::~MainWindow()
@@ -152,62 +145,58 @@ void MainWindow::paintEvent(QPaintEvent *event)
     rect= ui->widget->geometry();//ziskate porametre stvorca,do ktoreho chcete kreslit
     rect.translate(0,15);
     painter.drawRect(rect);
+
+#ifndef DISABLE_SKELETON
+    if (updateSkeletonPicture == 1) {
+        painter.setPen(Qt::red);
+        for (int i = 0; i < 75; i++) {
+            int xp = rect.width() - rect.width() * skeleJoints.joints[i].x + rect.topLeft().x();
+            int yp = (rect.height() * skeleJoints.joints[i].y) + rect.topLeft().y();
+            if (rect.contains(xp, yp))
+                painter.drawEllipse(QPoint(xp, yp), 2, 2);
+        }
+    }
+#endif
 #ifndef DISABLE_OPENCV
     if(useCamera1==true && actIndex>-1)/// ak zobrazujem data z kamery a aspon niektory frame vo vectore je naplneny
     {
         std::cout<<actIndex<<std::endl;
         QImage image = QImage((uchar*)frame[actIndex].data, frame[actIndex].cols, frame[actIndex].rows, frame[actIndex].step, QImage::Format_RGB888  );//kopirovanie cvmat do qimage
         painter.drawImage(rect,image.rgbSwapped());
-    }
-    else
-#endif
-    {
-        if (updateLaserPicture != 1) ///ak mam nove data z lidaru
-        {
-            return;
-        }
-        updateLaserPicture = 0;
-
-        pero.setColor(Qt::red); //farba je zelena
-        painter.setPen(pero);
-        painter.drawEllipse(QPoint(rect.width() / 2 + rect.topLeft().x(),
-                                   rect.height() / 2 + rect.topLeft().y()),
-                            15,
-                            15);
-
-        if (!_lastMHist.empty()) {
-            paintVFH(painter, pero, rect);
-        }
-        painter.drawLine(QPoint(rect.width() / 2 + rect.topLeft().x(),
-                                rect.height() / 2 + rect.topLeft().y()),
-                         QPoint(rect.width() / 2 + rect.topLeft().x(),
-                                rect.height() / 2 + rect.topLeft().y() - 15));
-        pero.setColor(Qt::green); //farba je zelena
-        painter.setPen(pero);
-
-        // laser data drawing
-        auto laserPoints = laserDataToPoints();
-        drawPoints(painter, rect, laserPoints, true);
-
-        // setpoint drawing
-        auto setpointPoints = setpointsToPoints();
-
-        painter.setPen(Qt::blue);
-        drawPoints(painter, rect, setpointPoints, true);
-    }
-#ifndef DISABLE_SKELETON
-    if(updateSkeletonPicture==1 )
-    {
-        painter.setPen(Qt::red);
-        for(int i=0;i<75;i++)
-        {
-            int xp=rect.width()-rect.width() * skeleJoints.joints[i].x+rect.topLeft().x();
-            int yp= (rect.height() *skeleJoints.joints[i].y)+rect.topLeft().y();
-            if(rect.contains(xp,yp))
-                painter.drawEllipse(QPoint(xp, yp),2,2);
-        }
+        return
     }
 #endif
+    if (!updateLaserPicture) {
+        return;
+    }
+    updateLaserPicture = false;
+
+    pero.setColor(Qt::red); //farba je zelena
+    painter.setPen(pero);
+    painter.drawEllipse(QPoint(rect.width() / 2 + rect.topLeft().x(),
+                               rect.height() / 2 + rect.topLeft().y()),
+                        15,
+                        15);
+
+    if (!_lastMHist.empty()) {
+        paintVFH(painter, pero, rect);
+    }
+    painter.drawLine(QPoint(rect.width() / 2 + rect.topLeft().x(),
+                            rect.height() / 2 + rect.topLeft().y()),
+                     QPoint(rect.width() / 2 + rect.topLeft().x(),
+                            rect.height() / 2 + rect.topLeft().y() - 15));
+    pero.setColor(Qt::green); //farba je zelena
+    painter.setPen(pero);
+
+    // laser data drawing
+    auto laserPoints = laserDataToPoints();
+    drawPoints(painter, rect, laserPoints, true);
+
+    // setpoint drawing
+    auto setpointPoints = setpointsToPoints();
+
+    painter.setPen(Qt::blue);
+    drawPoints(painter, rect, setpointPoints, true);
 }
 
 
@@ -227,13 +216,10 @@ void  MainWindow::setUiValues(double robotX,double robotY,double robotFi, double
 
 void MainWindow::on_pushButton_9_clicked() //start button
 {
-    //ziskanie joystickov
-
+    // turn off this button once clicked
+    this->ui->pushButton_9->setEnabled(false);
 
     //tu sa nastartuju vlakna ktore citaju data z lidaru a robota
-
-
-
     connect(&_robot,SIGNAL(publishPosition(double,double,double,double,double)),this,SLOT(setUiValues(double,double,double,double,double)));
     connect(&_robot,SIGNAL(publishLidar(const std::vector<LaserData> &)),this,SLOT(paintThisLidar(const std::vector<LaserData> &)));
     connect(&_robot, SIGNAL(publishHistogram(const std::vector<int>&)), this, SLOT(onHistogramUpdated(const std::vector<int>&)));
@@ -269,36 +255,28 @@ void MainWindow::onHistogramUpdated(const std::vector<int>& mHist)
 void MainWindow::on_pushButton_2_clicked() //forward
 {
     //pohyb dopredu
-    _robot.setSpeed(500,0);
-
+    _robot.setSpeed(500, 0);
 }
 
 void MainWindow::on_pushButton_3_clicked() //back
 {
-    _robot.setSpeed(-250,0);
-
+    _robot.setSpeed(-250, 0);
 }
 
 void MainWindow::on_pushButton_6_clicked() //left
 {
-    _robot.setSpeed(0,3.14159/2);
-
+    _robot.setSpeed(0, 3.14159 / 2);
 }
 
 void MainWindow::on_pushButton_5_clicked()//right
 {
-    _robot.setSpeed(0,-3.14159/2);
-
+    _robot.setSpeed(0, -3.14159 / 2);
 }
 
 void MainWindow::on_pushButton_4_clicked() //stop
 {
-    _robot.setSpeed(0,0);
-
+    _robot.setSpeed(0, 0);
 }
-
-
-
 
 void MainWindow::on_pushButton_clicked()
 {
@@ -326,7 +304,7 @@ int MainWindow::paintThisLidar(const std::vector<LaserData> &laserData)
 {
     copyOfLaserData=laserData;
     //memcpy( &copyOfLaserData,&laserData,sizeof(LaserMeasurement));
-    updateLaserPicture = 1;
+    updateLaserPicture = true;
 
     update();
     return 0;
@@ -451,4 +429,12 @@ void MainWindow::on_pushButton_14_clicked()
     Point cur_position = {_robot.odom.getX(), _robot.odom.getY()};
     Point goal_position = {_setpointX, _setpointY};
     _robot.mapper.plan(cur_position, goal_position);
+    if (!_robot.mapper.isPlanned()) {
+        std::cerr << "Path planning failed!" << std::endl;
+        return;
+    }
+    std::cout << "Path planning successfull, retrieving path data..." << std::endl;
+    auto trajectory = _robot.mapper.getPathPlan();
+    _robot.path_tracker.setTrajectory(trajectory);
+    _robot.path_tracker.start();
 }

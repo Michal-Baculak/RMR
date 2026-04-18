@@ -82,12 +82,12 @@ public:
   private:
   robot _robot;
   Ui::MainWindow *ui;
-  int updateLaserPicture;
+  bool updateLaserPicture = false;
   std::vector<LaserData> copyOfLaserData;
   int datacounter;
   std::string ipaddress;
   QTimer *timer;
-  double _setpointX = 1;
+  double _setpointX = 0;
   double _setpointY = 0;
   std::vector<int> _lastMHist;
 

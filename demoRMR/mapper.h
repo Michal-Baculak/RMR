@@ -28,21 +28,25 @@ class Mapper
     cv::Mat _map_cv;
     size_t _mid_point = 0;
     size_t _map_size = 0;
-    bool isPlanned = false;
+    bool is_planned = false;
+    std::vector<Point> path_plan;
 
 private:
     uint16_t &getAt(int x, int y);
     uint16_t &getAt(double x, double y);
     std::vector<cv::Point> getElementsWithinDistance(cv::Point from, int distance) const;
+    std::vector<cv::Point> get4Neighborhood(cv::Point from) const;
     void inflateObstacles(double radius);
     void setTo(uint16_t val, const std::vector<cv::Point> &indices);
     bool floodFillIteration(std::vector<cv::Point> &idxs_to_check,
                             std::vector<cv::Point> &idxs_updated,
                             uint16_t level);
     bool floodFill(cv::Point start);
+    std::vector<cv::Point> getKeypoints(cv::Point goal);
 
 public:
     size_t getMapSize();
+    const std::vector<Point> &getPathPlan() const;
 
     bool isInitialized();
     void init();
@@ -57,6 +61,7 @@ public:
     cv::Point pointToMapIndex(Point real_position) const;
     Point mapIndexToPoint(cv::Point map_coords) const;
     void plan(Point from, Point to);
+    bool isPlanned() const { return is_planned; }
     void clearPlan();
 };
 
