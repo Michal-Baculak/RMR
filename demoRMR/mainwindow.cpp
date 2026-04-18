@@ -38,6 +38,106 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
+QPointF MainWindow::globalToRobotFrame(const QPointF &globalPoint) const
+{
+    double dx = globalPoint.x() - _robot.odom.getX();
+    double dy = globalPoint.y() - _robot.odom.getY();
+
+    // add pi/2 since positive X is displayed UP not left
+    double rot = -_robot.odom.getRot() + PI / 2;
+
+    double c = std::cos(rot);
+    double s = std::sin(rot);
+
+    double localX = dx * c - dy * s;
+    double localY = dx * s + dy * c;
+
+    return QPointF(localX, localY);
+}
+
+std::vector<QPointF> MainWindow::setpointsToPoints() const
+{
+    std::vector<QPointF> points;
+
+    const auto &setpoints = _robot.path_tracker.getSetpoints();
+    points.reserve(setpoints.size());
+
+    for (const auto &sp : setpoints) {
+        QPointF globalPoint(sp.x, sp.y);
+        points.push_back(globalToRobotFrame(globalPoint));
+    }
+
+    return points;
+}
+
+std::vector<QPointF> MainWindow::laserDataToPoints() const
+{
+    std::vector<QPointF> points;
+    points.reserve(copyOfLaserData.size());
+
+    for (const auto &scan : copyOfLaserData) {
+        double dist = (scan.scanDistance / 1000.0); // mm -> meters
+
+        double angleRad = (360.0 - scan.scanAngle) * PI / 180.0;
+
+        double x = -dist * std::sin(angleRad);
+        double y = dist * std::cos(angleRad);
+
+        points.emplace_back(x, y);
+    }
+
+    return points;
+}
+
+void MainWindow::drawPoints(QPainter &painter,
+                            const QRect &rect,
+                            const std::vector<QPointF> &points,
+                            bool alreadyLocal)
+{
+    int cx = rect.width() / 2 + rect.topLeft().x();
+    int cy = rect.height() / 2 + rect.topLeft().y();
+
+    for (const auto &p : points) {
+        QPointF point = alreadyLocal ? p : globalToRobotFrame(p);
+
+        int xp = cx + point.x() * PIXELS_PER_METER;
+        int yp = cy - point.y() * PIXELS_PER_METER;
+
+        if (rect.contains(xp, yp))
+            painter.drawEllipse(QPoint(xp, yp), 3, 3);
+    }
+}
+
+void MainWindow::paintVFH(QPainter &painter, QPen pero, QRect rect)
+{
+    int cx = rect.width() / 2 + rect.topLeft().x();
+    int cy = rect.height() / 2 + rect.topLeft().y();
+    int r_inner = 30;
+    int r_outer = 60;
+
+    int numSectors = (int) _lastMHist.size();
+    double sectorDeg = 360.0 / numSectors;
+
+    for (int k = 0; k < numSectors; ++k) {
+        double startDeg = 90.0 + k * sectorDeg;
+
+        QColor color = (_lastMHist[k] == 0) ? QColor(0, 255, 0, 80) : QColor(255, 0, 0, 80);
+
+        painter.setBrush(color);
+        pero.setColor(color.darker(150));
+        pero.setWidth(1);
+        painter.setPen(pero);
+
+        QRect pieRect(cx - r_outer, cy - r_outer, 2 * r_outer, 2 * r_outer);
+        painter.drawPie(pieRect, (int) (startDeg * 16), (int) (sectorDeg * 16));
+    }
+
+    painter.setBrush(Qt::black);
+    pero.setColor(Qt::green);
+    pero.setWidth(3);
+    painter.setPen(pero);
+}
+
 void MainWindow::paintEvent(QPaintEvent *event)
 {
     QPainter painter(this);
@@ -62,62 +162,38 @@ void MainWindow::paintEvent(QPaintEvent *event)
     else
 #endif
     {
-        if(updateLaserPicture==1) ///ak mam nove data z lidaru
+        if (updateLaserPicture != 1) ///ak mam nove data z lidaru
         {
-            updateLaserPicture=0;
-
-            pero.setColor(Qt::red);//farba je zelena
-            painter.setPen(pero);
-            painter.drawEllipse(QPoint(rect.width()/2+rect.topLeft().x(), rect.height()/2+rect.topLeft().y()),15,15);
-            if (!_lastMHist.empty()) {
-                int cx = rect.width()  / 2 + rect.topLeft().x();
-                int cy = rect.height() / 2 + rect.topLeft().y();
-                int r_inner = 30;
-                int r_outer = 60;
-
-                int numSectors = (int)_lastMHist.size();
-                double sectorDeg = 360.0/numSectors;
-
-                for (int k = 0; k<numSectors; ++k){
-                    double startDeg = 90.0 + k * sectorDeg;
-
-                    QColor color = (_lastMHist[k] == 0) ? QColor(0, 255, 0, 80) : QColor(255, 0, 0, 80);
-
-                    painter.setBrush(color);
-                    pero.setColor(color.darker(150));
-                    pero.setWidth(1);
-                    painter.setPen(pero);
-
-                    QRect pieRect(cx - r_outer, cy - r_outer, 2 * r_outer, 2 * r_outer);
-                    painter.drawPie(pieRect, (int)(startDeg * 16), (int)(sectorDeg * 16));
-                }
-
-                painter.setBrush(Qt::black);
-                pero.setColor(Qt::green);
-                pero.setWidth(3);
-                painter.setPen(pero);
-            }
-            painter.drawLine(QPoint(rect.width()/2+rect.topLeft().x(), rect.height()/2+rect.topLeft().y()),QPoint(rect.width()/2+rect.topLeft().x(), rect.height()/2+rect.topLeft().y()-15));
-            pero.setColor(Qt::green);//farba je zelena
-            painter.setPen(pero);
-            //teraz tu kreslime random udaje... vykreslite to co treba... t.j. data z lidaru
-            //   std::cout<<copyOfLaserData.numberOfScans<<std::endl;
-            for(const auto &k :copyOfLaserData)
-            {
-                int dist = k.scanDistance / 1000
-                           * PIXELS_PER_METER; // vzdialenost cielavedome predelena
-                int xp = rect.width()
-                         - (rect.width() / 2 + dist * sin((360.0 - k.scanAngle) * PI / 180.0))
-                         + rect.topLeft().x(); //prepocet do obrazovky
-                int yp = rect.height()
-                         - (rect.height() / 2 + dist * cos((360.0 - k.scanAngle) * PI / 180.0))
-                         + rect.topLeft().y(); //prepocet do obrazovky
-                if(rect.contains(xp,yp))//ak je bod vo vnutri nasho obdlznika tak iba vtedy budem chciet kreslit
-                    painter.drawEllipse(QPoint(xp, yp),2,2);
-            }
-
-            //TODO: setpoint drawing
+            return;
         }
+        updateLaserPicture = 0;
+
+        pero.setColor(Qt::red); //farba je zelena
+        painter.setPen(pero);
+        painter.drawEllipse(QPoint(rect.width() / 2 + rect.topLeft().x(),
+                                   rect.height() / 2 + rect.topLeft().y()),
+                            15,
+                            15);
+
+        if (!_lastMHist.empty()) {
+            paintVFH(painter, pero, rect);
+        }
+        painter.drawLine(QPoint(rect.width() / 2 + rect.topLeft().x(),
+                                rect.height() / 2 + rect.topLeft().y()),
+                         QPoint(rect.width() / 2 + rect.topLeft().x(),
+                                rect.height() / 2 + rect.topLeft().y() - 15));
+        pero.setColor(Qt::green); //farba je zelena
+        painter.setPen(pero);
+
+        // laser data drawing
+        auto laserPoints = laserDataToPoints();
+        drawPoints(painter, rect, laserPoints, true);
+
+        // setpoint drawing
+        auto setpointPoints = setpointsToPoints();
+
+        painter.setPen(Qt::blue);
+        drawPoints(painter, rect, setpointPoints, true);
     }
 #ifndef DISABLE_SKELETON
     if(updateSkeletonPicture==1 )
@@ -250,7 +326,7 @@ int MainWindow::paintThisLidar(const std::vector<LaserData> &laserData)
 {
     copyOfLaserData=laserData;
     //memcpy( &copyOfLaserData,&laserData,sizeof(LaserMeasurement));
-    updateLaserPicture=1;
+    updateLaserPicture = 1;
 
     update();
     return 0;

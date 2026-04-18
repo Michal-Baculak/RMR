@@ -91,7 +91,15 @@ public:
   double _setpointY = 0;
   std::vector<int> _lastMHist;
 
+  void paintVFH(QPainter &painter, QPen pero, QRect rect);
   void setSetpoint(double x, double y);
+  void drawPoints(QPainter &painter,
+                  const QRect &rect,
+                  const std::vector<QPointF> &points,
+                  bool alreadyLocal);
+  QPointF globalToRobotFrame(const QPointF &globalPoint) const;
+  std::vector<QPointF> laserDataToPoints() const;
+  std::vector<QPointF> setpointsToPoints() const;
 
 #ifndef DISABLE_JOYSTICK
   QJoysticks *instance;

@@ -39,11 +39,11 @@ public:
     Odometry();
     void init(TKobukiData initData);
     bool isInitialized() { return _isInitialized; }
-    double getX() {return _posX;}
-    double getY() {return _posY;}
-    double getRot() {return _rot;}
-    double getOmega() {return _omega;}
-    double getV() {return _v;}
+    double getX() const { return _posX; }
+    double getY() const { return _posY; }
+    double getRot() const { return _rot; }
+    double getOmega() const { return _omega; }
+    double getV() const { return _v; }
     void compensateLidarScan(std::vector<LaserData> &laserData, std::vector<XYQPoint> &parsedPoints);
     void compensateLidarScan(std::vector<LaserData> &laserData);
     Pose interpolatePosition(Pose p1, Pose p2, uint32_t t1, uint32_t t2, uint32_t t);

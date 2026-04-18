@@ -43,6 +43,7 @@ class PathTracker
 
 public:
     void setSetpoint(double x, double y);
+    const std::deque<Point> &getSetpoints() const { return setpoints; }
     double getSetpointX();
     double getSetpointY();
 
