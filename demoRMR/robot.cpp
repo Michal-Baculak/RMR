@@ -226,6 +226,7 @@ cv::Mat getMatFromMap(Mapper mapper)
 void robot::plotMap()
 {
     cv::imshow("Map", getMatFromMap(mapper));
+    cv::waitKey(10);
 }
 
 void robot::exportMap()
