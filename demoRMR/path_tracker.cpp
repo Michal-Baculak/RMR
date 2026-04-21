@@ -137,7 +137,7 @@ void PathTracker::updateVFH(Odometry odom, double safe_heading)
 
     double heading_diff_abs = std::abs(alpha);
     if (heading_diff_abs > PI / 4.0) {
-        rho = 0.1 * POSITION_EPSILON + 0.9 * REGULATION_ZONE_DIST;
+        rho = 0.3 * POSITION_EPSILON + 0.7 * REGULATION_ZONE_DIST;
     } else {
         rho = rho * (1.0 - (heading_diff_abs / (PI / 4.0)));
     }

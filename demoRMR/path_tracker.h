@@ -30,7 +30,7 @@ class PathTracker
     const double POSITION_EPSILON
         = 0.015; // [m] if position error falls in this range, position is considered reached and controller stops
     const double POSITION_EPSILON_DYNAMIC
-        = 0.2; // [m] if position error falls in this range, controller sets next setpoint (TODO: this is not yet employed)
+        = 0.2; // [m] if position error falls in this range, controller sets next setpoint
     const double REGULATION_ZONE_DIST
         = 0.1; // [m] if the distance from setpoint falls withing this bound, velocity is no longer profiled and is instead being set by regulator
     // it should hold that POSITION_EPSILON_DNYMIC > REGULATION_ZONE_DIST > POSITION_EPSILON > 0

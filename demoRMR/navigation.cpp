@@ -58,7 +58,7 @@ std::optional<double> Navigation::update(const std::vector<LaserData>  &laserDat
         while(angle_deg_local < 0.0) angle_deg_local += 360.0;
         while(angle_deg_local >= 360.0) angle_deg_local -= 360.0;
 
-        // prevod polarnych sur. prekazky na kartezske
+        // prevod polarnej sur. prekazky na kartezske
         double angle_rad = angle_deg_local * PI / 180.0;
         double ox = d_i * std::cos(angle_rad);
         double oy = d_i * std::sin(angle_rad);

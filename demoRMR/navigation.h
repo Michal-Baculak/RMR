@@ -42,7 +42,7 @@ private:
     // weights for cost function
     const double _mu1 = 3.5;
     const double _mu2 = 1.5;
-    const double _mu3 = 2.0;
+    const double _mu3 = 3.0;
 
     const double _valley_edge = S_MAX/6;
 

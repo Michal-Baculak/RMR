@@ -50,7 +50,7 @@ public:
     Pose extrapolatePosition(Pose p0, double v, double w, double t);
     Pose getCurrentPoseEstimate(uint32_t currentTimestamp);
     Point laserToPoint(LaserData laser);
-    Point laserToPoint(Pose observer, LaserData laser);
+    static Point laserToPoint(Pose observer, LaserData laser);
 };
 
 #endif // ODOMETRY_H
