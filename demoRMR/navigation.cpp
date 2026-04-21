@@ -55,16 +55,19 @@ std::optional<double> Navigation::update(const std::vector<LaserData>  &laserDat
         if (d_i <= RADIUS || d_i > WIN_SIZE) continue;
 
         double angle_deg_local = -ld.scanAngle;
-        // while(angle_deg_local < 0.0) angle_deg_local += 360.0;
-        // while(angle_deg_local >= 360.0) angle_deg_local -= 360.0;
+        while(angle_deg_local < 0.0) angle_deg_local += 360.0;
+        while(angle_deg_local >= 360.0) angle_deg_local -= 360.0;
 
+        // prevod polarnych sur. prekazky na kartezske
         double angle_rad = angle_deg_local * PI / 180.0;
         double ox = d_i * std::cos(angle_rad);
         double oy = d_i * std::sin(angle_rad);
 
+        // stredy kruznic, po ktorych robot ide
         double cr_y = -r_min;
         double cl_y = r_min;
 
+        // vzdialenost prekazky od kruznice
         double dist_R = std::sqrt(ox*ox + (oy - cr_y)*(oy - cr_y));
         double dist_L = std::sqrt(ox*ox + (oy - cl_y)*(oy - cl_y));
 
@@ -92,24 +95,6 @@ std::optional<double> Navigation::update(const std::vector<LaserData>  &laserDat
                 mHist[kk] = 1;
             }
         }
-
-        // if (dist_L < (r_min + RADIUS + DS))
-        // {
-        //     for (int dk = -gamma_sectors; dk <= 0; ++dk)
-        //     {
-        //         int kk = (k_obs + dk + NUM_SECTORS) % NUM_SECTORS;
-        //         mHist[kk] = 1;
-        //     }
-        // }
-
-        // if (dist_R < (r_min + RADIUS + DS))
-        // {
-        //     for (int dk = 0; dk <= gamma_sectors; ++dk)
-        //     {
-        //         int kk = (k_obs + dk + NUM_SECTORS) % NUM_SECTORS;
-        //         mHist[kk] = 1;
-        //     }
-        // }
     }
 
     // std::cout << "mHist = (";
@@ -125,6 +110,7 @@ std::optional<double> Navigation::update(const std::vector<LaserData>  &laserDat
     double targetAngle_deg = targetAngle * 180.0 / PI;
     double robotAngle_deg  = rPhi * 180.0 / PI;
 
+    // prepocet uhla cielu do lok. sur. robota
     double local_target_deg = targetAngle_deg - robotAngle_deg;
     if (local_target_deg < 0.0) local_target_deg += 360.0;
     if (local_target_deg >= 360.0) local_target_deg -= 360.0;
@@ -133,8 +119,6 @@ std::optional<double> Navigation::update(const std::vector<LaserData>  &laserDat
     int k_robot_heading = angleToSector(0.0);
 
     std::vector<int> candidates = findCandidateSectors(mHist, k_target);
-
-    // int best_k;
 
     if (candidates.empty())
     {
@@ -149,15 +133,6 @@ std::optional<double> Navigation::update(const std::vector<LaserData>  &laserDat
 
     double safe_heading_rad = sectorToSafeHeading(best_k, robotAngle_deg);
 
-    // double local_best_deg = sectorToAngle(best_k);
-    // double global_best_deg = local_best_deg + robotAngle_deg;
-
-    // global_best_deg = std::fmod(global_best_deg, 360.0);
-    // if (global_best_deg > 180.0) global_best_deg -= 360.0;
-    // if (global_best_deg < -180.0) global_best_deg += 360.0;
-
-    // double safe_heading_rad = global_best_deg * PI / 180.0;
-
     std::cout << "[VFH+] k_target=" << k_target
            << " best_k=" << best_k
            << " safe_heading=" << safe_heading_rad * 180.0 / PI << " deg" << std::endl;
@@ -171,14 +146,14 @@ std::vector<double> Navigation::calcPHist(const std::vector<LaserData>  &laserDa
 
     for (int i = 0; i < (int)laserData.size(); i++)
     {
-        double d_i = laserData[i].scanDistance / 1000.0;
+        double d_i = laserData[i].scanDistance / 1000.0; // vzdialenost v metroch
 
-        if (d_i <= RADIUS || d_i > WIN_SIZE) continue;
+        if (d_i <= RADIUS || d_i > WIN_SIZE) continue; // vymedzenie vzdialenosti, ktoru robot berie do uvahy
 
-        double angle_deg_laser = laserData[i].scanAngle;
-        double angle_i = -angle_deg_laser;
+        double angle_deg_laser = laserData[i].scanAngle; // uhol v stupnoch
+        double angle_i = -angle_deg_laser; // otocenie lasera
         while (angle_i < 0.0) angle_i += 360.0;
-        while (angle_i >= 360.0) angle_i -= 360.0;
+        while (angle_i >= 360.0) angle_i -= 360.0; // normalizacia do <0; 360>
 
         double ratio = (DS) / d_i;
         if (ratio > 1.0) ratio = 1.0;
@@ -196,12 +171,12 @@ std::vector<double> Navigation::calcPHist(const std::vector<LaserData>  &laserDa
 
         for (int k = k_min; k <= k_max; k++)
         {
-            int kk = ((k % NUM_SECTORS) + NUM_SECTORS) % NUM_SECTORS;
+            int kk = ((k % NUM_SECTORS) + NUM_SECTORS) % NUM_SECTORS; // osetrenie na hraniciach sektorov
 
             double sector_low = k * SIGMA;
             double sector_high = (k + 1) * SIGMA;
 
-            if (std::max(sector_low, alpha_low) <= std::min(sector_high, alpha_high))
+            if (std::max(sector_low, alpha_low) <= std::min(sector_high, alpha_high)) // zasah zvacsenej prekazky do sektora
             {
                 hist[kk] += m_i;
             }
@@ -226,6 +201,7 @@ std::vector<int> Navigation::findCandidateSectors(const std::vector<int> &mHist,
         }
     }
 
+    // ak nie su ziadne prekazky okolo a je volna cesta k cielu, pridaj ciel ako kandidata
     if (allFree)
     {
         candidates.push_back(k_target);
@@ -242,8 +218,8 @@ std::vector<int> Navigation::findCandidateSectors(const std::vector<int> &mHist,
         }
     }
 
-    int i = start_search;
-    int checked = 0;
+    int i = start_search; // zacne hladat na start_search
+    int checked = 0; // aku dlzku uz prehladal
     while (checked < NUM_SECTORS)
     {
         if (mHist[i % NUM_SECTORS] == 0)
@@ -265,8 +241,8 @@ std::vector<int> Navigation::findCandidateSectors(const std::vector<int> &mHist,
             }
             else //siroke udolie
             {
-                int k_right = (valley_start + static_cast<int>(S_MAX/3)) % NUM_SECTORS; // kandidat je start + 1 sektor
-                int k_left  = (valley_end - static_cast<int>(S_MAX/3) + NUM_SECTORS) % NUM_SECTORS; // kandidat je end + 1 sektor
+                int k_right = (valley_start + static_cast<int>(_valley_edge)) % NUM_SECTORS;
+                int k_left  = (valley_end - static_cast<int>(_valley_edge) + NUM_SECTORS) % NUM_SECTORS;
                 candidates.push_back(k_right);
                 candidates.push_back(k_left);
 

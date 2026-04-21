@@ -33,6 +33,7 @@ qt_add_executable(${PROJECT_NAME} WIN32
     utility.h
     utility.cpp
     custom_types.h
+    mclocalizer.h mclocalizer.cpp
 )
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE ROBOT_LIBRARY)
