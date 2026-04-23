@@ -22,11 +22,12 @@ public:
 private:
     const int NUM_SECTORS = 120;
     const double SIGMA = 3.0; // rozlisovacia schopnost (pocet stupnov na sektor)
-    const double DS = 0.05; // [m] - bezpecna vzdialenost od prekazky, ktoru ma robot dodrzat
+    const double DS = 0.1; // [m] - bezpecna vzdialenost od prekazky, ktoru ma robot dodrzat
     const double R_MIN_STATIC = 0.0;
     const int S_MAX = 20;
     const double RADIUS = 0.17; // polomer robota
     const double WIN_SIZE = 0.5;
+    const double W_MAX = 2.0;
 
     // threshold values
     const double _t_low = 10;
@@ -34,13 +35,14 @@ private:
 
     std::vector<int> _prev_binary_hist;
     int _prev_dir = 0;
+    double _prev_rPhi = 0.0;
 
     // constants for magnitude calculation
     const double _a = 18.0;
     const double _b = 7.0;
 
     // weights for cost function
-    const double _mu1 = 3.5;
+    const double _mu1 = 4.0;
     const double _mu2 = 1.5;
     const double _mu3 = 3.0;
 

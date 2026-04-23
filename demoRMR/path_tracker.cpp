@@ -79,7 +79,7 @@ void PathTracker::regulate(double rho, double alpha, double beta)
 
         // k = w/v
         // w = k*v
-        // std::cout << "Adjusting angular velocity to match curvature..." << std::endl;
+        //std::cout << "Adjusting angular velocity to match curvature..." << std::endl;
         command_w_new = v_clamped * k;
     }
     command_w_ = command_w_new;

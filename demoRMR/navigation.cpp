@@ -3,8 +3,8 @@
 
 Navigation::Navigation()
     : _prev_binary_hist(NUM_SECTORS, 0)
-    , _prev_dir(0)
     , _last_mHist(NUM_SECTORS, 0)
+    , _prev_rPhi(0.0)
 {}
 
 int Navigation::circularDist(int k1, int k2) const
@@ -22,88 +22,127 @@ std::optional<double> Navigation::update(const std::vector<LaserData>  &laserDat
 
     std::vector<int> bHist(NUM_SECTORS, 0);
 
+    // zmena v natoceni
+    double delta_rPhi = utility::wrap(rPhi - _prev_rPhi);
+    _prev_rPhi = rPhi;
+
+    int shift = static_cast<int>(std::round((delta_rPhi * 180.0/PI) / SIGMA)); // zmena v natoceni preratana na sektory
+
+
+    std::vector<int> rotated_prevbHist(NUM_SECTORS, 0);
+    for (int k = 0; k < NUM_SECTORS; k++)
+    {
+        int new_k = ((k - shift) + NUM_SECTORS) % NUM_SECTORS;
+        rotated_prevbHist[new_k] = _prev_binary_hist[k];
+    }
+
     for (int k = 0; k < NUM_SECTORS; k++)
     {
         if (pHist[k] < _t_low) bHist[k] = 0;
         else if (pHist[k] > _t_high) bHist[k] = 1;
-        else bHist[k] = _prev_binary_hist[k];
+        else {
+            //int new_k = ((k + shift) % NUM_SECTORS + NUM_SECTORS) % NUM_SECTORS;
+            bHist[k] = rotated_prevbHist[k];
+        }
+    }
+
+    if (shift > 1){
+        std::cout << "prevbHist = (";
+        for (int k = 0; k < NUM_SECTORS; k++)
+        {
+            std::cout << _prev_binary_hist[k] << ", ";
+        }
+        std::cout << ")" << _prev_binary_hist.size() << std::endl;
+
+        std::cout << shift << std::endl;
+
+        std::cout << "rotated_prevbHist = (";
+        for (int k = 0; k < NUM_SECTORS; k++)
+        {
+            std::cout << rotated_prevbHist[k] << ", ";
+        }
+        std::cout << ")" << rotated_prevbHist.size() << std::endl;
     }
 
     _prev_binary_hist = bHist;
 
-    // std::cout << "bHist = (";
-    // for (int k = 0; k < NUM_SECTORS; k++)
-    // {
-    //     std::cout << bHist[k] << ", ";
-    // }
-    // std::cout << ")" << bHist.size() << std::endl;
-
     // -----------------------------------Maskovany Histogram-----------------------------------
 
-    double r_min; // minimalny polomer otacania
+    // double r_min; // minimalny polomer otacania
 
-    if (std::fabs(currentW) < 1e-6)
-        r_min = 1e6; // stoji/ide rovno
-    else
-        r_min = std::fabs(currentV/currentW); // po kruznici s polomerom otacania
+    // if (std::fabs(currentW) < 1e-6)
+    //     r_min = 1e6; // stoji/ide rovno
+    // else
+    //     r_min = std::fabs(currentV/currentW); // po kruznici s polomerom otacania
 
     std::vector<int> mHist = bHist;
 
-    for (const auto &ld : laserData)
+    double v = std::fabs(currentV);
+
+    if (v < 1e-3)
     {
-        double d_i = ld.scanDistance / 1000.0;
-        if (d_i <= RADIUS || d_i > WIN_SIZE) continue;
-
-        double angle_deg_local = -ld.scanAngle;
-        while(angle_deg_local < 0.0) angle_deg_local += 360.0;
-        while(angle_deg_local >= 360.0) angle_deg_local -= 360.0;
-
-        // prevod polarnej sur. prekazky na kartezske
-        double angle_rad = angle_deg_local * PI / 180.0;
-        double ox = d_i * std::cos(angle_rad);
-        double oy = d_i * std::sin(angle_rad);
+        _last_mHist = mHist;
+    } else {
+        double r_l = v / std::max(currentW + W_MAX, 1e-3);
+        double r_r = v / std::max(W_MAX - currentW, 1e-3);
 
         // stredy kruznic, po ktorych robot ide
-        double cr_y = -r_min;
-        double cl_y = r_min;
+        double cr_y = -r_r;
+        double cl_y = r_l;
 
-        // vzdialenost prekazky od kruznice
-        double dist_R = std::sqrt(ox*ox + (oy - cr_y)*(oy - cr_y));
-        double dist_L = std::sqrt(ox*ox + (oy - cl_y)*(oy - cl_y));
-
-        int k_obs = angleToSector(angle_deg_local);
-
-        double ratio = (RADIUS + DS) / d_i;
-        if (ratio > 1.0) ratio = 1.0;
-        double gamma_deg = std::asin(ratio) * 180.0 / PI;
-        int gamma_sectors = static_cast<int>(std::ceil(gamma_deg / SIGMA));
-
-        if (oy > 0.0 && dist_L < (r_min + RADIUS + DS))
+        for (const auto &ld : laserData)
         {
-            for (int dk = -gamma_sectors; dk <= gamma_sectors; ++dk)
-            {
-                int kk = (k_obs + dk + NUM_SECTORS) % NUM_SECTORS;
-                mHist[kk] = 1;
+            double d_i = ld.scanDistance / 1000.0;
+            if (d_i <= RADIUS || d_i > WIN_SIZE) continue;
+
+            double angle_deg_local = -ld.scanAngle;
+            while(angle_deg_local < 0.0) angle_deg_local += 360.0;
+            while(angle_deg_local >= 360.0) angle_deg_local -= 360.0;
+
+            // prevod polarnej sur. prekazky na kartezske
+            double angle_rad = angle_deg_local * PI / 180.0;
+            double ox = d_i * std::cos(angle_rad);
+            double oy = d_i * std::sin(angle_rad);
+
+            // vzdialenost prekazky od kruznice
+            double dist_R = std::sqrt(ox*ox + (oy - cr_y)*(oy - cr_y));
+            double dist_L = std::sqrt(ox*ox + (oy - cl_y)*(oy - cl_y));
+
+            int k_obs = angleToSector(angle_deg_local);
+
+            double ratio = (RADIUS + DS) / d_i;
+            if (ratio > 1.0) ratio = 1.0;
+            double gamma_deg = std::asin(ratio) * 180.0 / PI;
+            int gamma_sectors = static_cast<int>(std::ceil(gamma_deg / SIGMA));
+
+            if (oy > 0.0) {
+                if (dist_L < (r_l + RADIUS + DS)) {
+                    for (int dk = -gamma_sectors; dk <= gamma_sectors; ++dk)
+                    {
+                        int kk = (k_obs + dk + NUM_SECTORS) % NUM_SECTORS;
+                        mHist[kk] = 1;
+                    }
+                }
+            } else {
+                if (dist_R < (r_r + RADIUS + DS)) {
+                    for (int dk = -gamma_sectors; dk <= gamma_sectors; ++dk)
+                    {
+                        int kk = (k_obs + dk + NUM_SECTORS) % NUM_SECTORS;
+                        mHist[kk] = 1;
+                    }
+                }
             }
         }
 
-        if (oy <= 0.0 && dist_R < (r_min + RADIUS + DS))
+        std::cout << "mHist = (";
+        for (int k = 0; k < NUM_SECTORS; k++)
         {
-            for (int dk = -gamma_sectors; dk <= gamma_sectors; ++dk)
-            {
-                int kk = (k_obs + dk + NUM_SECTORS) % NUM_SECTORS;
-                mHist[kk] = 1;
-            }
+            std::cout << mHist[k] << (k < NUM_SECTORS - 1 ? ", " : " ");
         }
+        std::cout << ")" << mHist.size() << std::endl;
+
+        _last_mHist = mHist;
     }
-
-    // std::cout << "mHist = (";
-    // for (int k = 0; k < NUM_SECTORS; k++)
-    // {
-    //     std::cout << mHist[k] << (k < NUM_SECTORS - 1 ? ", " : " ");
-    // }
-    // std::cout << ")" << mHist.size() << std::endl;
-    _last_mHist = mHist;
 
     // -------------------------------Kandidatske smery------------------
 
@@ -133,9 +172,9 @@ std::optional<double> Navigation::update(const std::vector<LaserData>  &laserDat
 
     double safe_heading_rad = sectorToSafeHeading(best_k, robotAngle_deg);
 
-    std::cout << "[VFH+] k_target=" << k_target
-           << " best_k=" << best_k
-           << " safe_heading=" << safe_heading_rad * 180.0 / PI << " deg" << std::endl;
+    // std::cout << "[VFH+] k_target=" << k_target
+    //        << " best_k=" << best_k
+    //        << " safe_heading=" << safe_heading_rad * 180.0 / PI << " deg" << std::endl;
 
     return safe_heading_rad;
 }
@@ -155,7 +194,7 @@ std::vector<double> Navigation::calcPHist(const std::vector<LaserData>  &laserDa
         while (angle_i < 0.0) angle_i += 360.0;
         while (angle_i >= 360.0) angle_i -= 360.0; // normalizacia do <0; 360>
 
-        double ratio = (DS) / d_i;
+        double ratio = (RADIUS+DS) / d_i;
         if (ratio > 1.0) ratio = 1.0;
 
         double gamma_i = std::asin(ratio) * 180.0 / PI;// zvacsovaci uhol
