@@ -14,4 +14,9 @@ double wrap(double x)
         x += 2 * M_PI;
     return x - M_PI;
 }
+
+double pow(double x)
+{
+    return x*x;
+}
 } // namespace utility

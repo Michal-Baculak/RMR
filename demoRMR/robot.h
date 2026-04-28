@@ -8,6 +8,7 @@
 #include "odometry.h"
 #include "path_tracker.h"
 #include "navigation.h"
+#include "mclocalizer.h"
 #include <mutex>
 
 #ifndef DISABLE_OPENCV
@@ -36,6 +37,7 @@ public:
   Navigation nav;
   LaserData laserData;
   Mapper mapper;
+  mclocalizer mcl;
 
   void initAndStartRobot(std::string ipaddress);
 
@@ -63,6 +65,13 @@ private:
     std::mutex lidar_data_mutex;
     std::mutex main_process_mutex;
     std::mutex navMutex;
+    std::mutex mclMutex;
+
+    int N_PARTICLES = 1000;
+    double CELL_SIZE = 0.05;
+
+    Pose _lastMclOdom = {0.0, 0.0, 0.0};
+    bool _hasLastMclOdom = false;
 
     /// toto su vase premenne na vasu odometriu (pouzijem vlastne, diky)
     double x;
