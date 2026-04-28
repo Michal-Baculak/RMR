@@ -70,6 +70,21 @@ int robot::processThisRobot(const TKobukiData &robotdata)
     // mutex the shit out of this function
     std::lock_guard<std::mutex> main_process_lock(main_process_mutex);
 
+    if (mapper.hasGoalPose() && (++planner_timing_counter % mapper.TICKS_TO_UPDATE_MAP) == 0
+        && path_tracker.getSetpoints().size() > 1) {
+        mapper.updatePlan({odom.getX(), odom.getY()});
+
+        // remapping failed!
+        if (!mapper.isPlanned()) {
+            // path_tracker.stop();
+            std::cerr << "Failed to remap path plan! " << std::endl;
+        } else {
+            // mappin successful
+            auto trajectory = mapper.getPathPlan();
+            path_tracker.setTrajectory(trajectory);
+        }
+    }
+
     ///tu mozete robit s datami z robota
     if (!odom.isInitialized())
         odom.init(robotdata);

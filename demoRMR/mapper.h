@@ -1,17 +1,22 @@
 #ifndef MAPPER_H
 #define MAPPER_H
 
+#include "custom_types.h"
 #include "librobot/CKobuki.h"
 #include "librobot/rplidar.h"
 #include <opencv2/core/mat.hpp>
 #include <vector>
 
 class Odometry;
-struct XYQPoint;
-struct Point;
+// struct XYQPoint;
+// struct Point;
 
 class Mapper
 {
+public:
+    const uint16_t TICKS_TO_UPDATE_MAP = 40 * 3; // update plan every N ticks (40 ticks per second)
+
+private:
     const double MAP_MAX_SIZE = 7.0;   // [m] - max size of map in one direction
     const double MAP_CELL_SIZE = 0.05; // [m] - size of one cell of map
     const uint16_t HITS_TO_REGISTER
@@ -28,7 +33,10 @@ class Mapper
     cv::Mat _map_cv;
     size_t _mid_point = 0;
     size_t _map_size = 0;
+
+    bool has_goal_pose = false;
     bool is_planned = false;
+    Point global_goal;
     std::vector<Point> path_plan;
 
 private:
@@ -63,6 +71,8 @@ public:
     void plan(Point from, Point to);
     bool isPlanned() const { return is_planned; }
     void clearPlan();
+    void updatePlan(Point curr_pose);
+    bool hasGoalPose();
 };
 
 #endif // MAPPER_H

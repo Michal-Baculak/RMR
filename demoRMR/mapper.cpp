@@ -219,7 +219,7 @@ std::vector<cv::Point> Mapper::getKeypoints(cv::Point goal)
 
     // direction of previous movement during backtracking
     cv::Point prev_dir{0, 0};
-    bool first_step = true;
+    // bool first_step = true;
 
     while (_map_cv.at<uint16_t>(current) != ID_START_POS) {
         std::vector<cv::Point> neighbours = getElementsWithinDistance(current, 1);
@@ -251,13 +251,15 @@ std::vector<cv::Point> Mapper::getKeypoints(cv::Point goal)
         cv::Point dir{next.x - current.x, next.y - current.y};
 
         // store corner tile whenever direction changes
-        if (!first_step && dir != prev_dir) {
+        if (
+            // !first_step &&
+            dir != prev_dir) {
             key_indices.push_back(current);
         }
 
         prev_dir = dir;
         current = next;
-        first_step = false;
+        // first_step = false;
     }
     // reverse so output goes start -> goal
     std::reverse(key_indices.begin(), key_indices.end());
@@ -267,6 +269,8 @@ std::vector<cv::Point> Mapper::getKeypoints(cv::Point goal)
 
 void Mapper::plan(Point from, Point to)
 {
+    global_goal = to;
+    has_goal_pose = true;
     clearPlan();
     is_planned = false;
     inflateObstacles(0.2);
@@ -279,8 +283,10 @@ void Mapper::plan(Point from, Point to)
     std::cout << "This is what I read at goal: " << _map_cv.at<uint16_t>(map_pt) << std::endl;
 
     bool success = floodFill(pointToMapIndex(from));
-    if (!success)
+    if (!success) {
+        std::cerr << "Flood fill failed! " << std::endl;
         return;
+    }
 
     // Extract only planning values
     cv::Mat flood_vis;
@@ -291,6 +297,7 @@ void Mapper::plan(Point from, Point to)
     auto key_tiles = getKeypoints(pointToMapIndex(to));
 
     if (key_tiles.empty())
+
         return;
 
     path_plan.reserve(key_tiles.size());
@@ -306,6 +313,11 @@ const std::vector<Point> &Mapper::getPathPlan() const
     return path_plan;
 }
 
+void Mapper::updatePlan(Point curr_pose)
+{
+    plan(curr_pose, global_goal);
+}
+
 std::vector<cv::Point> Mapper::get4Neighborhood(cv::Point from) const
 {
     std::vector<cv::Point> output;
@@ -319,4 +331,9 @@ std::vector<cv::Point> Mapper::get4Neighborhood(cv::Point from) const
     if (from.y < _map_size - 1)
         output.push_back({from.x, from.y + 1});
     return output;
+}
+
+bool Mapper::hasGoalPose()
+{
+    return has_goal_pose;
 }

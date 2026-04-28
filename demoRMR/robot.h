@@ -60,6 +60,8 @@ public:
 #endif
 private:
     bool new_lidar_data = false;
+    uint16_t planner_timing_counter = 0;
+
     std::mutex lidar_data_mutex;
     std::mutex main_process_mutex;
     std::mutex navMutex;
