@@ -23,4 +23,16 @@ struct XYQPoint
     uint32_t timestamp;
 };
 
+struct Particle
+{
+    Pose pose;
+    double weight;
+};
+
+enum class RobotState {
+    MAPPING,
+    LOCALIZING,
+    LOCALIZED
+};
+
 #endif // CUSTOM_TYPES_H

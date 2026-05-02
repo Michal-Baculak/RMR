@@ -79,7 +79,7 @@ void PathTracker::regulate(double rho, double alpha, double beta)
 
         // k = w/v
         // w = k*v
-        // std::cout << "Adjusting angular velocity to match curvature..." << std::endl;
+        //std::cout << "Adjusting angular velocity to match curvature..." << std::endl;
         command_w_new = v_clamped * k;
     }
     command_w_ = command_w_new;
@@ -137,10 +137,12 @@ void PathTracker::updateVFH(Odometry odom, double safe_heading)
 
     double heading_diff_abs = std::abs(alpha);
     if (heading_diff_abs > PI / 4.0) {
-        rho = 0.1 * POSITION_EPSILON + 0.9 * REGULATION_ZONE_DIST;
+        rho = 0.3 * POSITION_EPSILON + 0.7 * REGULATION_ZONE_DIST;
     } else {
-        rho = rho * (1.0 - (heading_diff_abs / (PI / 4.0)));
+        rho = rho * (1.0 - (heading_diff_abs / (PI / 3.5)));
     }
+
+    std::cout << rho << std::endl;
     regulate(rho, alpha, beta);
 }
 
@@ -177,6 +179,10 @@ void PathTracker::stop()
 bool PathTracker::isRunning()
 {
     return is_running_;
+}
+
+void PathTracker::brake(){
+    regulate(0, 0, 0);
 }
 
 double PathTracker::wrap(double x)

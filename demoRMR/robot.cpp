@@ -105,6 +105,45 @@ int robot::processThisRobot(const TKobukiData &robotdata)
             plotMap();
             emit publishLidar(copyOfLaserData);
             new_lidar_data = false;
+
+            if (mcl.isInitialized()) {
+                std::lock_guard<std::mutex> mclLock(mclMutex);
+
+                Pose currOdom = {odom.getX(), odom.getY(), odom.getRot()};
+
+                if (!_hasLastMclOdom) {
+                    _lastMclOdom = currOdom;
+                    _hasLastMclOdom = true;
+                } else {
+
+                    double dx_global = currOdom.x - _lastMclOdom.x;
+                    double dy_global = currOdom.y - _lastMclOdom.y;
+                    double dphi = currOdom.phi - _lastMclOdom.phi;
+
+                    double cs = std::cos(_lastMclOdom.phi);
+                    double sn = std::sin(_lastMclOdom.phi);
+                    double dx_local = dx_global * cs + dy_global * sn;
+                    double dy_local = -dx_global * sn + dy_global * cs;
+
+                    double trans_eps = 0.005; // 5 mm
+                    double rot_eps = 0.005;   // ~0.3 deg
+                    if (std::sqrt(dx_local*dx_local + dy_local*dy_local) > trans_eps
+                        || std::abs(dphi) > rot_eps) {
+
+                        mcl.updateMotion(dx_local, dy_local, dphi);
+                        mcl.updateWeights(copyOfLaserData);
+                        mcl.resample();
+
+                        cv::Mat vis = mcl.getVisualization();
+                        if (!vis.empty()) {
+                            cv::imshow("MCL", vis);
+                            cv::waitKey(1);
+                        }
+
+                        _lastMclOdom = currOdom;
+                    }
+                }
+            }
         }
     }
     // if (path_tracker.isRunning()) {
@@ -132,17 +171,16 @@ int robot::processThisRobot(const TKobukiData &robotdata)
 
         if (!safeDir.has_value())
         {
-            path_tracker.stop();
+            path_tracker.brake();
         }
         else {
             std::cout << "Is current heading safe? " << nav.isDirWithinCurrentSector(rPhi, rPhi)
                       << std::endl;
             path_tracker.updateVFH(odom, safeDir.value());
-
-            auto cmd = path_tracker.getCommand();
-
-            setSpeed(cmd.first * 1000.0, cmd.second);
         }
+
+        auto cmd = path_tracker.getCommand();
+        setSpeed(cmd.first * 1000.0, cmd.second);
 
         // Vizualizacia histogramu (kazdy 5. tick)
         // if (datacounter % 5 == 0)
@@ -252,7 +290,22 @@ void robot::exportMap()
 void robot::importMap()
 {
     cv::Mat map = cv::imread("map.bmp", cv::IMREAD_GRAYSCALE);
+    if (map.empty()) {
+        std::cerr << "Failed to load map.bmp - is it in the working directory?" << std::endl;
+        return;
+    }
     mapper.init(map);
+    cv::Mat binMap = mapper.getMapFiltered();
+    {
+        std::lock_guard<std::mutex> mclLock(mclMutex);
+        mcl.init(binMap, CELL_SIZE, N_PARTICLES);
+        _hasLastMclOdom = false;
+        cv::Mat vis = mcl.getVisualization();
+        if (!vis.empty()) {
+            cv::imshow("MCL", vis);
+            cv::waitKey(1);
+        }
+    }
 }
 #ifndef DISABLE_OPENCV
 ///toto je calback na data z kamery, ktory ste podhodili robotu vo funkcii initAndStartRobot
