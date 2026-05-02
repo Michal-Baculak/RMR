@@ -44,9 +44,11 @@ private:
     // weights for cost function
     const double _mu1 = 4.0;
     const double _mu2 = 1.5;
-    const double _mu3 = 3.0;
+    const double _mu3 = 2.0;
 
-    const double _valley_edge = S_MAX/6;
+    const double _valley_edge = S_MAX/20;
+
+    bool _has_prev_rPhi = false;
 
     int circularDist(int k1, int k2) const;
     std::vector<int> findCandidateSectors(const std::vector<int> &mHist, int k_target) const;

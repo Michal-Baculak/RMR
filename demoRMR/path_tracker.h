@@ -58,6 +58,7 @@ public:
     void start();
     void stop();
     static double wrap(double angle);
+    void brake();
 
 private:
     void regulate(double rho, double alpha, double beta);

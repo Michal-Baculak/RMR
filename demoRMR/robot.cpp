@@ -156,17 +156,16 @@ int robot::processThisRobot(const TKobukiData &robotdata)
 
         if (!safeDir.has_value())
         {
-            path_tracker.stop();
+            path_tracker.brake();
         }
         else {
             std::cout << "Is current heading safe? " << nav.isDirWithinCurrentSector(rPhi, rPhi)
                       << std::endl;
             path_tracker.updateVFH(odom, safeDir.value());
-
-            auto cmd = path_tracker.getCommand();
-
-            setSpeed(cmd.first * 1000.0, cmd.second);
         }
+
+        auto cmd = path_tracker.getCommand();
+        setSpeed(cmd.first * 1000.0, cmd.second);
 
         // Vizualizacia histogramu (kazdy 5. tick)
         // if (datacounter % 5 == 0)
