@@ -60,6 +60,8 @@ private:
     double LIDAR_MAX_M = 5.0;
     double WEIGHT_EPS = 1e-6;
 
+    const double SIGMA_MIN = 1e-6;
+
     double _injectionRatio = 0.05;
 };
 

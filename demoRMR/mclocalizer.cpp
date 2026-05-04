@@ -140,7 +140,7 @@ void mclocalizer::createDistanceField()
         for (int x = 0; x < _distanceField.cols; ++x) {
             if (x < _bboxMin.x || x > _bboxMax.x ||
                 y < _bboxMin.y || y > _bboxMax.y) {
-                _distanceField.at<float>(y, x) = -1.0f;
+                _distanceField.at<float>(y, x) = 5; //-1.0f;
             }
         }
     }
@@ -199,9 +199,14 @@ void mclocalizer::updateMotion(double dx, double dy, double dPhi)
         drot2 = utility::wrap(dPhi - drot1);
     }
 
-    const double sigma_rot1 = std::sqrt(_a1 * utility::pow(drot1) + _a2 * utility::pow(dtrans));
-    const double sigma_trans = std::sqrt(_a3 * utility::pow(dtrans) + _a4 * (utility::pow(drot1) + utility::pow(drot2)));
-    const double sigma_rot2 = std::sqrt(_a1 * utility::pow(drot2) + _a2 * utility::pow(dtrans));
+    double sigma_rot1 = std::sqrt(_a1 * utility::pow(drot1) + _a2 * utility::pow(dtrans));
+    double sigma_trans = std::sqrt(_a3 * utility::pow(dtrans)
+                                   + _a4 * (utility::pow(drot1) + utility::pow(drot2)));
+    double sigma_rot2 = std::sqrt(_a1 * utility::pow(drot2) + _a2 * utility::pow(dtrans));
+
+    sigma_rot1 = std::max(sigma_rot1, SIGMA_MIN);
+    sigma_trans = std::max(sigma_trans, SIGMA_MIN);
+    sigma_rot2 = std::max(sigma_rot2, SIGMA_MIN);
 
     std::normal_distribution<double> n_rot1(0.0, sigma_rot1);
     std::normal_distribution<double> n_trans(0.0, sigma_trans);
