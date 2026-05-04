@@ -86,8 +86,11 @@ int robot::processThisRobot(const TKobukiData &robotdata)
             std::vector<XYQPoint> xyPointCloud;
             odom.compensateLidarScan(copyOfLaserData, xyPointCloud);
             // mapper.update(odom, copyOfLaserData);
-            mapper.update(xyPointCloud);
-            plotMap();
+            if (_state == RobotState::LOCALIZED) {
+                mapper.update(xyPointCloud);
+                plotMap();
+            }
+
             emit publishLidar(copyOfLaserData);
             new_lidar_data = false;
 
@@ -117,6 +120,13 @@ int robot::processThisRobot(const TKobukiData &robotdata)
 
                         mcl.updateMotion(dx_local, dy_local, dphi);
                         mcl.updateWeights(copyOfLaserData);
+
+                        if (_state == RobotState::LOCALIZING && mcl.isLocalized()) {
+                            _state = RobotState::LOCALIZED;
+                            emit stateChanged(static_cast<int>(_state));
+                            std::cout << "[ROBOT] MCL converged. State -> LOCALIZED" << std::endl;
+                        }
+
                         mcl.resample();
 
                         cv::Mat vis = mcl.getVisualization();
@@ -291,6 +301,10 @@ void robot::importMap()
             cv::waitKey(1);
         }
     }
+
+    _state = RobotState::LOCALIZING;
+    emit stateChanged(static_cast<int>(_state));
+    std::cout << "[ROBOT] Imported map. State -> LOCALIZING" << std::endl;
 }
 #ifndef DISABLE_OPENCV
 ///toto je calback na data z kamery, ktory ste podhodili robotu vo funkcii initAndStartRobot

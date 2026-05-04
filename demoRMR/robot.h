@@ -50,10 +50,13 @@ public:
   void plotMap();
   void exportMap();
   void importMap();
+  RobotState getState() const { return _state; }
+  bool isLocalized() const { return _state == RobotState::LOCALIZED; }
   signals:
   void publishPosition(double x, double y, double z, double omega, double v);
   void publishLidar(const std::vector<LaserData> &lidata);
   void publishHistogram(const std::vector<int>& mHist);
+  void stateChanged(int newState);
 #ifndef DISABLE_OPENCV
   void publishCamera(const cv::Mat &camframe);
 #endif
@@ -72,6 +75,8 @@ private:
 
     Pose _lastMclOdom = {0.0, 0.0, 0.0};
     bool _hasLastMclOdom = false;
+
+    RobotState _state = RobotState::MAPPING;
 
     /// toto su vase premenne na vasu odometriu (pouzijem vlastne, diky)
     double x;

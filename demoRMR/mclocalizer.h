@@ -28,6 +28,8 @@ public:
     bool isInitialized() const {return _initialized; }
     cv::Mat getVisualization() const;
 
+    bool isLocalized() const;
+
 private:
     cv::Point poseToMapIndex(double x, double y) const;
     bool isFree(double x, double y) const;
@@ -61,6 +63,9 @@ private:
     double WEIGHT_EPS = 1e-6;
 
     double _injectionRatio = 0.05;
+
+    double _locStdXY = 0.1;
+    double _locStdPhi = 0.1;
 };
 
 

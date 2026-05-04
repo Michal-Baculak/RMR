@@ -15,6 +15,7 @@ MainWindow::MainWindow(QWidget *parent) :
     on_IPComboBox_currentIndexChanged(0);
 
     ui->setupUi(this);
+    ui->pushButton_14->setEnabled(false);
     datacounter=0;
 #ifndef DISABLE_OPENCV
     actIndex=-1;
@@ -213,6 +214,10 @@ void  MainWindow::setUiValues(double robotX,double robotY,double robotFi, double
     //_lastMHist = _robot.nav.getLastMHist();
 }
 
+void MainWindow::onRobotStateChanged(int s)
+{
+    ui->pushButton_14->setEnabled(s == static_cast<int>(RobotState::LOCALIZED));
+}
 
 void MainWindow::on_pushButton_9_clicked() //start button
 {
@@ -223,6 +228,7 @@ void MainWindow::on_pushButton_9_clicked() //start button
     connect(&_robot,SIGNAL(publishPosition(double,double,double,double,double)),this,SLOT(setUiValues(double,double,double,double,double)));
     connect(&_robot,SIGNAL(publishLidar(const std::vector<LaserData> &)),this,SLOT(paintThisLidar(const std::vector<LaserData> &)));
     connect(&_robot, SIGNAL(publishHistogram(const std::vector<int>&)), this, SLOT(onHistogramUpdated(const std::vector<int>&)));
+    connect(&_robot, SIGNAL(stateChanged(int)), this, SLOT(onRobotStateChanged(int)));
 #ifndef DISABLE_OPENCV
     connect(&_robot,SIGNAL(publishCamera(const cv::Mat &)),this,SLOT(paintThisCamera(const cv::Mat &)));
 #endif
@@ -426,14 +432,34 @@ void MainWindow::on_pushButton_13_clicked()
 
 void MainWindow::on_pushButton_14_clicked()
 {
-    Point cur_position = {_robot.odom.getX(), _robot.odom.getY()};
-    Point goal_position = {_setpointX, _setpointY};
+    // Point cur_position = {_robot.odom.getX(), _robot.odom.getY()};
+    // Point goal_position = {_setpointX, _setpointY};
+    // _robot.mapper.plan(cur_position, goal_position);
+    // if (!_robot.mapper.isPlanned()) {
+    //     std::cerr << "Path planning failed!" << std::endl;
+    //     return;
+    // }
+    // std::cout << "Path planning successfull, retrieving path data..." << std::endl;
+    // auto trajectory = _robot.mapper.getPathPlan();
+    // _robot.path_tracker.setTrajectory(trajectory);
+    // _robot.path_tracker.start();
+
+    if (!_robot.isLocalized()) {
+        std::cerr << "Cannot plan: robot is not localized yet. Import map and wait for MCL to converge." << std::endl;
+        ui->setpointLabel->setText("Not localized yet — cannot plan.");
+        return;
+    }
+
+    Pose mclPose = _robot.mcl.getBestPose();
+    Point cur_position  = { mclPose.x, mclPose.y };
+    Point goal_position = { _setpointX, _setpointY };
+
     _robot.mapper.plan(cur_position, goal_position);
     if (!_robot.mapper.isPlanned()) {
         std::cerr << "Path planning failed!" << std::endl;
         return;
     }
-    std::cout << "Path planning successfull, retrieving path data..." << std::endl;
+    std::cout << "Path planning successful, retrieving path data..." << std::endl;
     auto trajectory = _robot.mapper.getPathPlan();
     _robot.path_tracker.setTrajectory(trajectory);
     _robot.path_tracker.start();

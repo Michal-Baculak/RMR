@@ -61,6 +61,7 @@ public:
 
   int paintThisLidar(const std::vector<LaserData> &laserData);
   void onHistogramUpdated(const std::vector<int>& mHist);
+  void onRobotStateChanged(int s);
 #ifndef DISABLE_OPENCV
   int paintThisCamera(const cv::Mat &cameraData);
 #endif
