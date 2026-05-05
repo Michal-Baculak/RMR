@@ -58,10 +58,20 @@ cv::Point mclocalizer::poseToMapIndex(double x, double y) const
 
 bool mclocalizer::isFree(double x, double y) const
 {
+    // cv::Point idx = poseToMapIndex(x, y);
+    // if (idx.x < 0 || idx.x >= _obstacleMap.cols || idx. y < 0 || idx.y >= _obstacleMap.rows) {
+    //     return false;
+    // }
+
+    // return _obstacleMap.at<uint8_t>(idx.y, idx.x) == 0;
     cv::Point idx = poseToMapIndex(x, y);
-    if (idx.x < 0 || idx.x >= _obstacleMap.cols || idx. y < 0 || idx.y >= _obstacleMap.rows) {
+    if (idx.x < 0 || idx.x >= _obstacleMap.cols || idx.y < 0 || idx.y >= _obstacleMap.rows) {
         return false;
     }
+
+    // outside the mapped area is NOT a valid pose, even though there is no obstacle there
+    if (!_insideMask.empty() && _insideMask.at<uint8_t>(idx.y, idx.x) == 0)
+        return false;
 
     return _obstacleMap.at<uint8_t>(idx.y, idx.x) == 0;
 }
@@ -85,32 +95,120 @@ Pose mclocalizer::sampleRandomFreePose()
 
 void mclocalizer::createDistanceField()
 {
+    // // invert Map to properly use distanceTransform
+    // cv::Mat inverted;
+    // cv::bitwise_not(_obstacleMap, inverted);
+    // cv::distanceTransform(inverted, _distanceField, cv::DIST_L2, 5); // distance to the nearest black px
+    // _distanceField *= static_cast<float>(_cellSize);
+
+    // // calculate bounding box
+    // // distance field in WHOLE window
+    // _bboxMin = cv::Point(0, 0);
+    // _bboxMax = cv::Point(_obstacleMap.cols - 1, _obstacleMap.rows - 1);
+    // _bboxComputed = true;
+
+    // // obtain fields's extremes
+    // double minVal, maxVal;
+    // cv::minMaxLoc(_distanceField, &minVal, &maxVal);
+
+    // // field of free cells - sampleFreePose uses this
+    // _validFreeCells.clear();
+    // for (int y = 0; y < _obstacleMap.rows; ++y) {
+    //     for (int x = 0; x < _obstacleMap.cols; ++x) {
+    //         if (_obstacleMap.at<uint8_t>(y, x) == 0)
+    //             _validFreeCells.emplace_back(x, y);
+    //     }
+    // }
+    // std::cout << "[MCL] valid free cells (full map): "
+    //           << _validFreeCells.size() << std::endl;
+    // std::cout << "[MCL] distance field: min=" << minVal
+    //           << " m, max=" << maxVal << " m" << std::endl;
+
     // invert Map to properly use distanceTransform
     cv::Mat inverted;
     cv::bitwise_not(_obstacleMap, inverted);
     cv::distanceTransform(inverted, _distanceField, cv::DIST_L2, 5); // distance to the nearest black px
     _distanceField *= static_cast<float>(_cellSize);
 
-    // calculate bounding box
-    // distance field in WHOLE window
-    _bboxMin = cv::Point(0, 0);
-    _bboxMax = cv::Point(_obstacleMap.cols - 1, _obstacleMap.rows - 1);
-    _bboxComputed = true;
+    // detect the actual mapped area (the room interior)
+    // Free cells form 1+ connected components. The component(s) that touch
+    // the image border are "outside" of the room - we exclude them so that
+    // particles cannot be sampled there.
+    cv::Mat freeMask;
+    cv::compare(_obstacleMap, 0, freeMask, cv::CMP_EQ); // 255 where free
 
-    // obtain fields's extremes
-    double minVal, maxVal;
-    cv::minMaxLoc(_distanceField, &minVal, &maxVal);
+    cv::Mat labels;
+    int nComp = cv::connectedComponents(freeMask, labels, 8, CV_32S);
+    (void) nComp;
 
-    // field of free cells - sampleFreePose uses this
+    std::set<int> outsideLabels;
+    for (int x = 0; x < labels.cols; ++x) {
+        outsideLabels.insert(labels.at<int>(0, x));
+        outsideLabels.insert(labels.at<int>(labels.rows - 1, x));
+    }
+    for (int y = 0; y < labels.rows; ++y) {
+        outsideLabels.insert(labels.at<int>(y, 0));
+        outsideLabels.insert(labels.at<int>(y, labels.cols - 1));
+    }
+
+    _insideMask = cv::Mat::zeros(_obstacleMap.size(), CV_8UC1);
     _validFreeCells.clear();
-    for (int y = 0; y < _obstacleMap.rows; ++y) {
-        for (int x = 0; x < _obstacleMap.cols; ++x) {
-            if (_obstacleMap.at<uint8_t>(y, x) == 0)
+
+    int xMin = _obstacleMap.cols, yMin = _obstacleMap.rows, xMax = 0, yMax = 0;
+    for (int y = 0; y < labels.rows; ++y) {
+        for (int x = 0; x < labels.cols; ++x) {
+            int lbl = labels.at<int>(y, x);
+            // lbl == 0 => background (obstacle pixel in our freeMask)
+            if (lbl > 0 && outsideLabels.count(lbl) == 0) {
+                _insideMask.at<uint8_t>(y, x) = 255;
                 _validFreeCells.emplace_back(x, y);
+                if (x < xMin) xMin = x;
+                if (y < yMin) yMin = y;
+                if (x > xMax) xMax = x;
+                if (y > yMax) yMax = y;
+            }
         }
     }
-    std::cout << "[MCL] valid free cells (full map): "
+
+    // Fallback: if the room is not fully enclosed, fall back to bounding box
+    // of obstacles so we at least don't sample across the whole window.
+    if (_validFreeCells.empty()) {
+        std::cerr << "[MCL] no enclosed free area found, falling back to bbox of obstacles"
+                  << std::endl;
+        std::vector<cv::Point> obstaclePts;
+        cv::findNonZero(_obstacleMap, obstaclePts);
+        if (!obstaclePts.empty()) {
+            cv::Rect bbox = cv::boundingRect(obstaclePts);
+            xMin = bbox.x;
+            yMin = bbox.y;
+            xMax = bbox.x + bbox.width  - 1;
+            yMax = bbox.y + bbox.height - 1;
+            for (int y = yMin; y <= yMax; ++y) {
+                for (int x = xMin; x <= xMax; ++x) {
+                    if (_obstacleMap.at<uint8_t>(y, x) == 0) {
+                        _insideMask.at<uint8_t>(y, x) = 255;
+                        _validFreeCells.emplace_back(x, y);
+                    }
+                }
+            }
+        }
+    }
+
+    _bboxMin = cv::Point(xMin, yMin);
+    _bboxMax = cv::Point(xMax, yMax);
+    _bboxComputed = true;
+
+    // obtain field's extremes (only over the inside area for nicer logs)
+    double minVal = 0.0, maxVal = 0.0;
+    if (!_validFreeCells.empty())
+        cv::minMaxLoc(_distanceField, &minVal, &maxVal, nullptr, nullptr, _insideMask);
+    else
+        cv::minMaxLoc(_distanceField, &minVal, &maxVal);
+
+    std::cout << "[MCL] valid free cells (inside room): "
               << _validFreeCells.size() << std::endl;
+    std::cout << "[MCL] inside bbox: (" << _bboxMin.x << "," << _bboxMin.y
+              << ") - (" << _bboxMax.x << "," << _bboxMax.y << ")" << std::endl;
     std::cout << "[MCL] distance field: min=" << minVal
               << " m, max=" << maxVal << " m" << std::endl;
 }
@@ -298,9 +396,22 @@ cv::Mat mclocalizer::getVisualization() const
         return cv::Mat();
 
     // distance field -> color map, blue = close to obstacle, red = far
-    cv::Mat validMask = _distanceField >= 0;
+    // cv::Mat validMask = _distanceField >= 0;
+    // double minVal, maxVal;
+    // cv::minMaxLoc(_distanceField, &minVal, &maxVal, nullptr, nullptr, validMask);
+    // if (maxVal <= minVal) maxVal = minVal + 1.0;
+
+    // cv::Mat dfNorm;
+    // _distanceField.convertTo(dfNorm, CV_8U,
+    //                          255.0 / (maxVal - minVal),
+    //                          -255.0 * minVal / (maxVal - minVal));
+    // cv::Mat dfColor;
+    // cv::applyColorMap(dfNorm, dfColor, cv::COLORMAP_JET);
+    //dfColor.setTo(cv::Scalar(40, 40, 40), ~validMask);
+
+    cv::Mat scaleMask = (!_insideMask.empty()) ? _insideMask : (_distanceField >= 0);
     double minVal, maxVal;
-    cv::minMaxLoc(_distanceField, &minVal, &maxVal, nullptr, nullptr, validMask);
+    cv::minMaxLoc(_distanceField, &minVal, &maxVal, nullptr, nullptr, scaleMask);
     if (maxVal <= minVal) maxVal = minVal + 1.0;
 
     cv::Mat dfNorm;
@@ -309,7 +420,11 @@ cv::Mat mclocalizer::getVisualization() const
                              -255.0 * minVal / (maxVal - minVal));
     cv::Mat dfColor;
     cv::applyColorMap(dfNorm, dfColor, cv::COLORMAP_JET);
-    //dfColor.setTo(cv::Scalar(40, 40, 40), ~validMask);
+
+    // grey-out the area outside the mapped room so it is visually obvious
+    // that MCL only operates inside the actual map
+    if (!_insideMask.empty())
+        dfColor.setTo(cv::Scalar(40, 40, 40), ~_insideMask);
 
     // max weight due to particles color scaling
     double maxW = 0.0;
