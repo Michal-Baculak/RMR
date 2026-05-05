@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
+#include <set>
 
 #include "custom_types.h"
 #include "opencv2/opencv.hpp"
@@ -39,6 +40,7 @@ private:
     std::mt19937 _rng;
     cv::Mat _obstacleMap;
     cv::Mat _distanceField;
+    cv::Mat _insideMask;
     double _cellSize = 0.0;
     int _midPoint = 0;
     std::vector<Particle> _particles;
