@@ -155,11 +155,16 @@ void mclocalizer::updateMotion(double dx, double dy, double dPhi)
     // decompose motion to 3 parts
     // a1 to a4 define errors
     // rotation to target
-    const double sigma_rot1 = std::sqrt(_a1 * utility::pow(drot1) + _a2 * utility::pow(dtrans));
+    double sigma_rot1 = std::sqrt(_a1 * utility::pow(drot1) + _a2 * utility::pow(dtrans));
     // translation
-    const double sigma_trans = std::sqrt(_a3 * utility::pow(dtrans) + _a4 * (utility::pow(drot1) + utility::pow(drot2)));
+    double sigma_trans = std::sqrt(_a3 * utility::pow(dtrans)
+                                   + _a4 * (utility::pow(drot1) + utility::pow(drot2)));
     // final rot
-    const double sigma_rot2 = std::sqrt(_a1 * utility::pow(drot2) + _a2 * utility::pow(dtrans));
+    double sigma_rot2 = std::sqrt(_a1 * utility::pow(drot2) + _a2 * utility::pow(dtrans));
+
+    sigma_rot1 = std::max(SIGMA_MIN, sigma_rot1);
+    sigma_trans = std::max(SIGMA_MIN, sigma_trans);
+    sigma_rot2 = std::max(SIGMA_MIN, sigma_rot2);
 
     std::normal_distribution<double> n_rot1(0.0, sigma_rot1);
     std::normal_distribution<double> n_trans(0.0, sigma_trans);

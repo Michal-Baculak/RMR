@@ -185,5 +185,3 @@ void LidarOdometry::init(std::vector<LaserData>& scan)
     _prevScan = convertScan(scan);
     _isInitialized = true;
 }
-
-

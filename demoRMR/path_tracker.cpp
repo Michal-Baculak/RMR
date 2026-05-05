@@ -219,3 +219,16 @@ double PathTracker::getSetpointY()
 {
     return setpoints.at(0).y;
 }
+
+void PathTracker::transformSetpoints(Pose old_pose, Pose new_pose)
+{
+    for (Point &goal : setpoints) {
+        double dx = goal.x - old_pose.x;
+        double dy = goal.y - old_pose.y;
+        double dist = sqrt(dx * dx + dy * dy);
+        double azimuth = atan2(dy, dx);
+
+        goal.x = new_pose.x + cos(azimuth) * dist;
+        goal.y = new_pose.y + sin(azimuth) * dist;
+    }
+}

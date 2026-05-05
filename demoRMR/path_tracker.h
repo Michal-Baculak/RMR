@@ -59,6 +59,7 @@ public:
     void stop();
     static double wrap(double angle);
     void brake();
+    void transformSetpoints(Pose old_pose, Pose new_pose);
 
 private:
     void regulate(double rho, double alpha, double beta);

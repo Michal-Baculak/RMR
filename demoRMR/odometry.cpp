@@ -240,3 +240,13 @@ Point Odometry::laserToPoint(Pose observer, LaserData laser)
     output.y = observer.y + laser.scanDistance * sin(angle) / 1000;
     return output;
 }
+
+void Odometry::setPose(Pose pose, TKobukiData data)
+{
+    _poseStack.clear();
+    _posX = pose.x;
+    _posY = pose.y;
+    _rot = pose.phi;
+    _rotPrev = _rot;
+    init(data);
+}

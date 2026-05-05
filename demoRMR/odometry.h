@@ -51,6 +51,7 @@ public:
     Pose getCurrentPoseEstimate(uint32_t currentTimestamp);
     Point laserToPoint(LaserData laser);
     static Point laserToPoint(Pose observer, LaserData laser);
+    void setPose(Pose pose, TKobukiData data);
 };
 
 #endif // ODOMETRY_H

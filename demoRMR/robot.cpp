@@ -124,7 +124,11 @@ int robot::processThisRobot(const TKobukiData &robotdata)
                         if (_state == RobotState::LOCALIZING && mcl.isLocalized()) {
                             _state = RobotState::LOCALIZED;
                             emit stateChanged(static_cast<int>(_state));
+                            Pose old_pose = {odom.getX(), odom.getY(), odom.getRot()};
+                            Pose new_pose = mcl.getBestPose();
+                            path_tracker.transformSetpoints(old_pose, new_pose);
                             std::cout << "[ROBOT] MCL converged. State -> LOCALIZED" << std::endl;
+                            odom.setPose(mcl.getBestPose(), robotdata);
                         }
 
                         mcl.resample();

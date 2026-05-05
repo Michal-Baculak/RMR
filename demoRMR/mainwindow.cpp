@@ -15,7 +15,7 @@ MainWindow::MainWindow(QWidget *parent) :
     on_IPComboBox_currentIndexChanged(0);
 
     ui->setupUi(this);
-    ui->pushButton_14->setEnabled(false);
+    // ui->pushButton_14->setEnabled(false);
     datacounter=0;
 #ifndef DISABLE_OPENCV
     actIndex=-1;
@@ -216,7 +216,7 @@ void  MainWindow::setUiValues(double robotX,double robotY,double robotFi, double
 
 void MainWindow::onRobotStateChanged(int s)
 {
-    ui->pushButton_14->setEnabled(s == static_cast<int>(RobotState::LOCALIZED));
+    // ui->pushButton_14->setEnabled(s == static_cast<int>(RobotState::LOCALIZED));
 }
 
 void MainWindow::on_pushButton_9_clicked() //start button
