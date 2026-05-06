@@ -61,14 +61,14 @@ private:
 
     int LASER_STRIDE = 5;
     double LIDAR_MIN_M = 0.1;
-    double LIDAR_MAX_M = 5.0;
+    double LIDAR_MAX_M = 3.0;
     double WEIGHT_EPS = 1e-6;
     const double SIGMA_MIN = 1e-7;
 
     double _injectionRatio = 0.05;
 
-    double _locStdXY = 0.1;
-    double _locStdPhi = 0.1;
+    double _locStdXY = 0.05;
+    double _locStdPhi = 0.05;
 };
 
 

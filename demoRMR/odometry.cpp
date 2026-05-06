@@ -243,10 +243,10 @@ Point Odometry::laserToPoint(Pose observer, LaserData laser)
 
 void Odometry::setPose(Pose pose, TKobukiData data)
 {
+    init(data);
     _poseStack.clear();
     _posX = pose.x;
     _posY = pose.y;
     _rot = pose.phi;
     _rotPrev = _rot;
-    init(data);
 }
