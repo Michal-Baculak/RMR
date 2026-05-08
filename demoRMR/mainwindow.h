@@ -80,6 +80,16 @@ public:
 
   void on_pushButton_14_clicked();
 
+  void on_setpointYSpinBox_valueChanged(double arg1);
+
+  void on_setpointXSpinBox_valueChanged(double arg1);
+
+  void on_addGlobalSetpointpushButton_clicked();
+
+  void on_startMissionpushButton_clicked();
+
+  void on_removeSetpointpushButton_clicked();
+
   private:
   robot _robot;
   Ui::MainWindow *ui;
@@ -91,6 +101,7 @@ public:
   double _setpointX = 0;
   double _setpointY = 0;
   std::vector<int> _lastMHist;
+  QStringList missionSetpointEntries;
 
   void paintVFH(QPainter &painter, QPen pero, QRect rect);
   void setSetpoint(double x, double y);
@@ -98,6 +109,7 @@ public:
                   const QRect &rect,
                   const std::vector<QPointF> &points,
                   bool alreadyLocal);
+  void generateGlobalSetpointListViewContent();
   QPointF globalToRobotFrame(const QPointF &globalPoint) const;
   std::vector<QPointF> laserDataToPoints() const;
   std::vector<QPointF> setpointsToPoints() const;

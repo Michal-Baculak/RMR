@@ -1,7 +1,9 @@
 #include "mainwindow.h"
 #include <QEvent>
+#include <QListView>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QStringListModel>
 #include "ui_mainwindow.h"
 #include <math.h>
 
@@ -417,6 +419,7 @@ void MainWindow::on_pushButton_10_clicked()
 void MainWindow::on_pushButton_11_clicked()
 {
     _robot.path_tracker.stop();
+    _robot.stopMission();
     _robot.setSpeed(0, 0);
 }
 
@@ -463,4 +466,50 @@ void MainWindow::on_pushButton_14_clicked()
     auto trajectory = _robot.mapper.getPathPlan();
     _robot.path_tracker.setTrajectory(trajectory);
     _robot.path_tracker.start();
+}
+
+void MainWindow::on_setpointYSpinBox_valueChanged(double arg1)
+{
+    double sp_y = arg1;
+    setSetpoint(_setpointX, sp_y);
+}
+
+void MainWindow::on_setpointXSpinBox_valueChanged(double arg1)
+{
+    double sp_x = arg1;
+    setSetpoint(sp_x, _setpointY);
+}
+
+void MainWindow::generateGlobalSetpointListViewContent()
+{
+    missionSetpointEntries.clear();
+    for (int i = 0; i < _robot.missionSetpoints.size(); ++i) {
+        Point sp = _robot.missionSetpoints.at(i);
+        QString text = QString("Setpoint  %1: (%2, %3)").arg(i).arg(sp.x).arg(sp.y);
+        missionSetpointEntries << text;
+    }
+    QStringListModel *model = new QStringListModel(missionSetpointEntries);
+    this->ui->setpointListView->setModel(model);
+}
+
+void MainWindow::on_addGlobalSetpointpushButton_clicked()
+{
+    double sp_x = this->ui->setpointXSpinBox->value();
+    double sp_y = this->ui->setpointYSpinBox->value();
+    Point sp = {sp_x, sp_y};
+    _robot.missionSetpoints.push_back(sp);
+    generateGlobalSetpointListViewContent();
+}
+
+void MainWindow::on_removeSetpointpushButton_clicked()
+{
+    if (_robot.missionSetpoints.size() == 0)
+        return;
+    _robot.missionSetpoints.pop_back();
+    generateGlobalSetpointListViewContent();
+}
+
+void MainWindow::on_startMissionpushButton_clicked()
+{
+    _robot.startMission();
 }

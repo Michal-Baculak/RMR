@@ -232,3 +232,8 @@ void PathTracker::transformSetpoints(Pose old_pose, Pose new_pose)
         goal.y = new_pose.y + sin(azimuth) * dist;
     }
 }
+
+void PathTracker::clearTrajectory()
+{
+    setpoints.clear();
+}

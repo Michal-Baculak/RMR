@@ -35,4 +35,6 @@ enum class RobotState {
     LOCALIZED
 };
 
+enum class MissionState { IDLE, LOCALIZING, EXECUTING };
+
 #endif // CUSTOM_TYPES_H

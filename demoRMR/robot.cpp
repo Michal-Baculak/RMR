@@ -189,6 +189,21 @@ int robot::processThisRobot(const TKobukiData &robotdata)
         }
     }
 
+    if (_missionState == MissionState::LOCALIZING) {
+        if (mcl.isLocalized())
+            setMissionState(MissionState::EXECUTING);
+        else if (datacounter % 40 * 15 == 0)
+            goToRandom();
+    }
+    if (_missionState == MissionState::EXECUTING) {
+        if (!path_tracker.isRunning()) {
+            if (missionSetpoints.size() > 0)
+                goToNextGoal();
+            else
+                setMissionState(MissionState::IDLE);
+        }
+    }
+
     ///TU PISTE KOD... TOTO JE TO MIESTO KED NEVIETE KDE ZACAT,TAK JE TO NAOZAJ TU. AK AJ TAK NEVIETE, SPYTAJTE SA CVICIACEHO MA TU NATO STRING KTORY DA DO HLADANIA XXX
 
     ///kazdy piaty krat, aby to ui moc nepreblikavalo..
@@ -310,6 +325,64 @@ void robot::importMap()
     emit stateChanged(static_cast<int>(_state));
     std::cout << "[ROBOT] Imported map. State -> LOCALIZING" << std::endl;
 }
+
+void robot::goToRandom()
+{
+    double sp_x = static_cast<double>(rand() % 700) / 100;
+    double sp_y = static_cast<double>(rand() % 700) / 100;
+    path_tracker.clearTrajectory();
+    path_tracker.setGoalSetpoint(sp_x, sp_y);
+    path_tracker.start();
+}
+
+void robot::goToNextGoal()
+{
+    Point curr = {odom.getX(), odom.getY()};
+    Point goal = missionSetpoints.at(0);
+    missionSetpoints.erase(missionSetpoints.begin());
+    path_tracker.clearTrajectory();
+
+    mapper.plan(curr, goal);
+    if (!mapper.isPlanned()) {
+        path_tracker.setGoalSetpoint(goal.x, goal.y);
+    } else {
+        auto traj = mapper.getPathPlan();
+        path_tracker.setTrajectory(traj);
+    }
+    path_tracker.start();
+}
+
+void robot::setMissionState(MissionState state)
+{
+    switch (state) {
+    case MissionState::LOCALIZING:
+        goToRandom();
+        break;
+    case MissionState::EXECUTING:
+        if (missionSetpoints.size() == 0) {
+            setMissionState(MissionState::IDLE);
+            return;
+        }
+        goToNextGoal();
+        break;
+    case MissionState::IDLE:
+        // huzzaaaah!!!!
+        break;
+    }
+    _missionState = state;
+}
+
+void robot::startMission()
+{
+    importMap();
+    setMissionState(MissionState::LOCALIZING);
+}
+
+void robot::stopMission()
+{
+    setMissionState(MissionState::IDLE);
+}
+
 #ifndef DISABLE_OPENCV
 ///toto je calback na data z kamery, ktory ste podhodili robotu vo funkcii initAndStartRobot
 /// vola sa ked dojdu nove data z kamery
