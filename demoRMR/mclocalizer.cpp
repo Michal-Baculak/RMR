@@ -58,12 +58,6 @@ cv::Point mclocalizer::poseToMapIndex(double x, double y) const
 
 bool mclocalizer::isFree(double x, double y) const
 {
-    // cv::Point idx = poseToMapIndex(x, y);
-    // if (idx.x < 0 || idx.x >= _obstacleMap.cols || idx. y < 0 || idx.y >= _obstacleMap.rows) {
-    //     return false;
-    // }
-
-    // return _obstacleMap.at<uint8_t>(idx.y, idx.x) == 0;
     cv::Point idx = poseToMapIndex(x, y);
     if (idx.x < 0 || idx.x >= _obstacleMap.cols || idx.y < 0 || idx.y >= _obstacleMap.rows) {
         return false;
@@ -95,39 +89,10 @@ Pose mclocalizer::sampleRandomFreePose()
 
 void mclocalizer::createDistanceField()
 {
-    // // invert Map to properly use distanceTransform
-    // cv::Mat inverted;
-    // cv::bitwise_not(_obstacleMap, inverted);
-    // cv::distanceTransform(inverted, _distanceField, cv::DIST_L2, 5); // distance to the nearest black px
-    // _distanceField *= static_cast<float>(_cellSize);
-
-    // // calculate bounding box
-    // // distance field in WHOLE window
-    // _bboxMin = cv::Point(0, 0);
-    // _bboxMax = cv::Point(_obstacleMap.cols - 1, _obstacleMap.rows - 1);
-    // _bboxComputed = true;
-
-    // // obtain fields's extremes
-    // double minVal, maxVal;
-    // cv::minMaxLoc(_distanceField, &minVal, &maxVal);
-
-    // // field of free cells - sampleFreePose uses this
-    // _validFreeCells.clear();
-    // for (int y = 0; y < _obstacleMap.rows; ++y) {
-    //     for (int x = 0; x < _obstacleMap.cols; ++x) {
-    //         if (_obstacleMap.at<uint8_t>(y, x) == 0)
-    //             _validFreeCells.emplace_back(x, y);
-    //     }
-    // }
-    // std::cout << "[MCL] valid free cells (full map): "
-    //           << _validFreeCells.size() << std::endl;
-    // std::cout << "[MCL] distance field: min=" << minVal
-    //           << " m, max=" << maxVal << " m" << std::endl;
-
-    // invert Map to properly use distanceTransform
+    // invert Map to properly use distanceTransform and count distance to the obstacle
     cv::Mat inverted;
     cv::bitwise_not(_obstacleMap, inverted);
-    cv::distanceTransform(inverted, _distanceField, cv::DIST_L2, 5); // distance to the nearest black px
+    cv::distanceTransform(inverted, _distanceField, cv::DIST_L2, 5); // each pixel is distance to the nearest obstacle
     _distanceField *= static_cast<float>(_cellSize);
 
     // detect the actual mapped area (the room interior)
@@ -138,7 +103,7 @@ void mclocalizer::createDistanceField()
     cv::compare(_obstacleMap, 0, freeMask, cv::CMP_EQ); // 255 where free
 
     cv::Mat labels;
-    int nComp = cv::connectedComponents(freeMask, labels, 8, CV_32S);
+    int nComp = cv::connectedComponents(freeMask, labels, 8, CV_32S); // divide free cells to components
     (void) nComp;
 
     std::set<int> outsideLabels;
@@ -232,7 +197,6 @@ void mclocalizer::setMotionNoise(double a1, double a2, double a3, double a4)
     _a4 = a4;
 }
 
-//TODO: Motion model with Gaussian noise
 void mclocalizer::updateMotion(double dx, double dy, double dPhi)
 {
     // odometry motion model
@@ -290,7 +254,6 @@ void mclocalizer::updateMotion(double dx, double dy, double dPhi)
     }
 }
 
-//TODO: update weigths from lidar measurement
 void mclocalizer::updateWeights(const std::vector<LaserData> &laserData)
 {
     if (!_initialized || _particles.empty() || laserData.empty())
@@ -343,7 +306,7 @@ void mclocalizer::updateWeights(const std::vector<LaserData> &laserData)
     }
 }
 
-//TODO: resampling
+
 void mclocalizer::resample()
 {
     if (!_initialized || _particles.empty())
@@ -351,38 +314,68 @@ void mclocalizer::resample()
 
     int N = static_cast<int>(_particles.size());
 
-    // calculate num of new random poses
-    int n_random = static_cast<int>(std::round(_injectionRatio * N));
-    n_random = std::clamp(n_random, 0, N);
-    int n_resample = N - n_random;
+    // adaptive particles number
+    // check convergence
+    _converged = isLocalized();
+    int targetN;
+    if (_converged) {
+        // reduce amount of particles, but not below _minParticles
+        targetN = std::max(_minParticles,
+                           static_cast<int>(std::round(N * _shrinkRatio)));
+    } else {
+        // if not converged, increase _maxParticles
+        targetN = std::min(_maxParticles,
+                           static_cast<int>(std::round(N * _growRatio)));
+    }
+    targetN = std::clamp(targetN, _minParticles, _maxParticles);
 
+    // number of random poses
+    int n_random = static_cast<int>(std::round(_injectionRatio * targetN));
+    n_random = std::clamp(n_random, 0, targetN);
+    int n_resample = targetN - n_random;
+
+    // wheel choice
+    // 1) cumulative distribution function
+    std::vector<double> cdf(N);
+    cdf[0] = _particles[0].weight;
+    for (int i = 1; i < N; ++i)
+        cdf[i] = cdf[i - 1] + _particles[i].weight;
+
+    const double totalW = cdf.back();
     std::vector<Particle> newParticles;
-    newParticles.reserve(N);
+    newParticles.reserve(targetN);
 
-    // selection
-    if (n_resample > 0) {
-        double step = 1.0 / static_cast<double>(n_resample);
-        std::uniform_real_distribution<double> u(0.0, step);
-        double rand_pose = u(_rng);
-        double cumulative = _particles[0].weight;
-        int i = 0;
-
+    if (totalW > 0.0 && n_resample > 0) {
+        // 2) for each new particle gen a rand number and choose particle
+        std::uniform_real_distribution<double> u(0.0, totalW);
+        const double newW = 1.0 / static_cast<double>(targetN);
         for (int m = 0; m < n_resample; ++m) {
-            double target = rand_pose + m * step;
-            while (target > cumulative && i < N - 1) {
-                ++i;
-                cumulative += _particles[i].weight;
-            }
-            newParticles.push_back({_particles[i].pose, 1.0 / N});
+            double target = u(_rng);
+            // binary index search in CDF (O(log N))
+            auto it = std::lower_bound(cdf.begin(), cdf.end(), target);
+            int idx = static_cast<int>(std::distance(cdf.begin(), it));
+            if (idx >= N) idx = N - 1;
+            newParticles.push_back({_particles[idx].pose, newW});
         }
+    } else {
+        // fallback: fill random weights if zero
+        n_random = targetN;
     }
 
+    // 3) random poses injection
+    const double newW = 1.0 / static_cast<double>(targetN);
     for (int k = 0; k < n_random; ++k) {
         Pose p = sampleRandomFreePose();
-        newParticles.push_back({p, 1.0 / N});
+        newParticles.push_back({p, newW});
     }
 
     _particles = std::move(newParticles);
+
+    std::cout << "[MCL] resample: N=" << targetN
+              << " (resampled=" << n_resample
+              << ", random=" << n_random
+              << ", converged=" << (_converged ? "yes" : "no") << ")"
+              << std::endl;
 }
 
 Pose mclocalizer::getBestPose() const
@@ -399,20 +392,6 @@ cv::Mat mclocalizer::getVisualization() const
 {
     if (!_initialized || _distanceField.empty())
         return cv::Mat();
-
-    // distance field -> color map, blue = close to obstacle, red = far
-    // cv::Mat validMask = _distanceField >= 0;
-    // double minVal, maxVal;
-    // cv::minMaxLoc(_distanceField, &minVal, &maxVal, nullptr, nullptr, validMask);
-    // if (maxVal <= minVal) maxVal = minVal + 1.0;
-
-    // cv::Mat dfNorm;
-    // _distanceField.convertTo(dfNorm, CV_8U,
-    //                          255.0 / (maxVal - minVal),
-    //                          -255.0 * minVal / (maxVal - minVal));
-    // cv::Mat dfColor;
-    // cv::applyColorMap(dfNorm, dfColor, cv::COLORMAP_JET);
-    //dfColor.setTo(cv::Scalar(40, 40, 40), ~validMask);
 
     cv::Mat scaleMask = (!_insideMask.empty()) ? _insideMask : (_distanceField >= 0);
     double minVal, maxVal;
@@ -532,9 +511,3 @@ bool mclocalizer::isLocalized() const
     std::cout << "[MCL] sx=" << sx << " sy=" << sy << " sphi=" << sp << std::endl;
     return (sx < _locStdXY && sy < _locStdXY && sp < _locStdPhi);
 }
-
-// otazky:
-// 1. mapper zapinat tlacidlom nezavisle od ostatnych vrstiev?
-// 2. Lokalizovat len raz a po konvergencii lokalizaciu vypnut, aby sa nahodou neprepisovala poloha?
-// 3. Ako to bude prebiehat na sutazi? ked polozime robot v nejakej mape, bude mat on sam cas na to, aby sa lokalizoval? Pripadne budeme mu vediet urcit,
-// ze kde sme ho polozili?

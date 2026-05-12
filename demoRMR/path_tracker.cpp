@@ -9,19 +9,12 @@ void PathTracker::regulate(double rho, double alpha, double beta)
     double v = k_rho_ * rho;
     double w = k_alpha_ * alpha + k_beta_ * beta;
 
-    std::cout << "***************Position Controller***************" << std::endl;
-    std::cout << "P controller suggests v = " << v << ", w = " << w << std::endl;
-
-    // if (rho < POSITION_EPSILON) {
-    //     stop();
-    //     std::cout << "Position error " << rho << "is under tolerance: " << POSITION_EPSILON
-    //               << ", stopping,..." << std::endl;
-    //     return;
-    // }
+    // std::cout << "***************Position Controller***************" << std::endl;
+    // std::cout << "P controller suggests v = " << v << ", w = " << w << std::endl;
 
     // determine path curvature - we want to preserve that and only adjust speed
     double k = w / v; // v is never zero here
-    std::cout << "curvature of desired path is k = " << k << std::endl;
+    // std::cout << "curvature of desired path is k = " << k << std::endl;
 
     // apply velocity profiling when far from target
     if (rho > REGULATION_ZONE_DIST) {
@@ -29,8 +22,7 @@ void PathTracker::regulate(double rho, double alpha, double beta)
         double profiled_vel = getProfiledVelocity(rho, REGULATION_ZONE_DIST);
         if (profiled_vel > v)
             v = profiled_vel;
-    } else
-        std::cout << "Near target, applying precise position regulation..." << std::endl;
+    }
 
     // calculate suggested acceleration
     double dt = SAMPLING_PERIOD;
@@ -47,13 +39,13 @@ void PathTracker::regulate(double rho, double alpha, double beta)
     v = command_v_ + dt * a_clamped; // v is still not zero here!
     w = command_w_ + dt * epsilon_clamped;
 
-    std::cout << "smooth next velocity is v = " << v << ", w = " << w << std::endl;
+    // std::cout << "smooth next velocity is v = " << v << ", w = " << w << std::endl;
 
     // clamped speed commands
     double v_clamped = std::clamp(v, -V_MAX, V_MAX);
     double w_clamped = std::clamp(w, -W_MAX, W_MAX);
 
-    std::cout << "after clamping: v = " << v_clamped << ", w  = " << w_clamped << std::endl;
+    // std::cout << "after clamping: v = " << v_clamped << ", w  = " << w_clamped << std::endl;
 
     // curvature adjust commands
     if (k == 0)
@@ -62,12 +54,12 @@ void PathTracker::regulate(double rho, double alpha, double beta)
 
     double command_v_new = v_clamped;
     double command_w_new = w_clamped;
-    std::cout << "curvature after clamping speeds is " << w_clamped / v_clamped << std::endl;
+    // std::cout << "curvature after clamping speeds is " << w_clamped / v_clamped << std::endl;
     if (abs(w_clamped / v_clamped) < abs(k)) {
         // v is relatively higher, make it match the curvature:
         // k = w/v
         // v = w/k
-        std::cout << "Adjusting velocity to match curvature..." << std::endl;
+        // std::cout << "Adjusting velocity to match curvature..." << std::endl;
         double v_optimal = w_clamped / k;
         double a_optimal = (v_optimal - command_v_) / SAMPLING_PERIOD;
         double a_limited = std::clamp(a_optimal, -BRAKING_MAX, ACCELERATION_MAX);

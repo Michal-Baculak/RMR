@@ -328,6 +328,7 @@ void robot::importMap()
 
 void robot::goToRandom()
 {
+    std::cout << "Going random..." <<std::endl;
     double sp_x = static_cast<double>(rand() % 700) / 100;
     double sp_y = static_cast<double>(rand() % 700) / 100;
     path_tracker.clearTrajectory();
@@ -337,6 +338,7 @@ void robot::goToRandom()
 
 void robot::goToNextGoal()
 {
+    std::cout << "Setting next goal" << std::endl;
     Point curr = {odom.getX(), odom.getY()};
     Point goal = missionSetpoints.at(0);
     missionSetpoints.erase(missionSetpoints.begin());
@@ -354,6 +356,7 @@ void robot::goToNextGoal()
 
 void robot::setMissionState(MissionState state)
 {
+    std::cout << "Setting mission state to " << (int)state << std::endl;
     switch (state) {
     case MissionState::LOCALIZING:
         goToRandom();

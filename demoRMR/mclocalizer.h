@@ -28,7 +28,7 @@ public:
     cv::Mat getDistanceField() const { return _distanceField; }
     bool isInitialized() const {return _initialized; }
     cv::Mat getVisualization() const;
-
+    void setAdaptiveLimits(int minN, int maxN) { _minParticles = minN; _maxParticles = maxN; }
     bool isLocalized() const;
 
 private:
@@ -67,8 +67,14 @@ private:
 
     double _injectionRatio = 0.05;
 
-    double _locStdXY = 0.05;
-    double _locStdPhi = 0.05;
+    double _locStdXY = 0.03;
+    double _locStdPhi = 0.03;
+
+    int _minParticles = 200;
+    int _maxParticles = 1000;
+    double _shrinkRatio = 0.5;
+    double _growRatio = 1.5;
+    bool _converged = false;
 };
 
 
