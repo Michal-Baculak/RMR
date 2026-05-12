@@ -49,6 +49,7 @@ public:
 
     void setGoalSetpoint(double x, double y);
     void setTrajectory(const std::vector<Point> &trajectory);
+    void clearTrajectory();
 
     void update(Odometry odom);
     void updateVFH(Odometry odom, double safe_heading);
@@ -59,6 +60,7 @@ public:
     void stop();
     static double wrap(double angle);
     void brake();
+    void transformSetpoints(Pose old_pose, Pose new_pose);
 
 private:
     void regulate(double rho, double alpha, double beta);

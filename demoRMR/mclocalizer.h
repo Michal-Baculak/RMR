@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
+#include <set>
 
 #include "custom_types.h"
 #include "opencv2/opencv.hpp"
@@ -27,6 +28,8 @@ public:
     cv::Mat getDistanceField() const { return _distanceField; }
     bool isInitialized() const {return _initialized; }
     cv::Mat getVisualization() const;
+    void setAdaptiveLimits(int minN, int maxN) { _minParticles = minN; _maxParticles = maxN; }
+    bool isLocalized() const;
 
 private:
     cv::Point poseToMapIndex(double x, double y) const;
@@ -37,6 +40,7 @@ private:
     std::mt19937 _rng;
     cv::Mat _obstacleMap;
     cv::Mat _distanceField;
+    cv::Mat _insideMask;
     double _cellSize = 0.0;
     int _midPoint = 0;
     std::vector<Particle> _particles;
@@ -57,10 +61,20 @@ private:
 
     int LASER_STRIDE = 5;
     double LIDAR_MIN_M = 0.1;
-    double LIDAR_MAX_M = 5.0;
+    double LIDAR_MAX_M = 3.0;
     double WEIGHT_EPS = 1e-6;
+    const double SIGMA_MIN = 1e-7;
 
     double _injectionRatio = 0.05;
+
+    double _locStdXY = 0.03;
+    double _locStdPhi = 0.03;
+
+    int _minParticles = 200;
+    int _maxParticles = 1000;
+    double _shrinkRatio = 0.5;
+    double _growRatio = 1.5;
+    bool _converged = false;
 };
 
 

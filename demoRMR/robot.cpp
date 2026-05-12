@@ -101,8 +101,11 @@ int robot::processThisRobot(const TKobukiData &robotdata)
             std::vector<XYQPoint> xyPointCloud;
             odom.compensateLidarScan(copyOfLaserData, xyPointCloud);
             // mapper.update(odom, copyOfLaserData);
-            mapper.update(xyPointCloud);
-            plotMap();
+            if (_state == RobotState::LOCALIZED) {
+                mapper.update(xyPointCloud);
+                plotMap();
+            }
+
             emit publishLidar(copyOfLaserData);
             new_lidar_data = false;
 
@@ -132,6 +135,17 @@ int robot::processThisRobot(const TKobukiData &robotdata)
 
                         mcl.updateMotion(dx_local, dy_local, dphi);
                         mcl.updateWeights(copyOfLaserData);
+
+                        if (_state == RobotState::LOCALIZING && mcl.isLocalized()) {
+                            _state = RobotState::LOCALIZED;
+                            emit stateChanged(static_cast<int>(_state));
+                            Pose old_pose = {odom.getX(), odom.getY(), odom.getRot()};
+                            Pose new_pose = mcl.getBestPose();
+                            path_tracker.transformSetpoints(old_pose, new_pose);
+                            std::cout << "[ROBOT] MCL converged. State -> LOCALIZED" << std::endl;
+                            odom.setPose(mcl.getBestPose(), robotdata);
+                        }
+
                         mcl.resample();
 
                         cv::Mat vis = mcl.getVisualization();
@@ -187,6 +201,21 @@ int robot::processThisRobot(const TKobukiData &robotdata)
         {
             std::lock_guard<std::mutex> lock(navMutex);
             emit publishHistogram(nav.getLastMHist());
+        }
+    }
+
+    if (_missionState == MissionState::LOCALIZING) {
+        if (mcl.isLocalized())
+            setMissionState(MissionState::EXECUTING);
+        else if (datacounter % 40 * 15 == 0)
+            goToRandom();
+    }
+    if (_missionState == MissionState::EXECUTING) {
+        if (!path_tracker.isRunning()) {
+            if (missionSetpoints.size() > 0)
+                goToNextGoal();
+            else
+                setMissionState(MissionState::IDLE);
         }
     }
 
@@ -306,7 +335,72 @@ void robot::importMap()
             cv::waitKey(1);
         }
     }
+
+    _state = RobotState::LOCALIZING;
+    emit stateChanged(static_cast<int>(_state));
+    std::cout << "[ROBOT] Imported map. State -> LOCALIZING" << std::endl;
 }
+
+void robot::goToRandom()
+{
+    std::cout << "Going random..." <<std::endl;
+    double sp_x = static_cast<double>(rand() % 700) / 100;
+    double sp_y = static_cast<double>(rand() % 700) / 100;
+    path_tracker.clearTrajectory();
+    path_tracker.setGoalSetpoint(sp_x, sp_y);
+    path_tracker.start();
+}
+
+void robot::goToNextGoal()
+{
+    std::cout << "Setting next goal" << std::endl;
+    Point curr = {odom.getX(), odom.getY()};
+    Point goal = missionSetpoints.at(0);
+    missionSetpoints.erase(missionSetpoints.begin());
+    path_tracker.clearTrajectory();
+
+    mapper.plan(curr, goal);
+    if (!mapper.isPlanned()) {
+        path_tracker.setGoalSetpoint(goal.x, goal.y);
+    } else {
+        auto traj = mapper.getPathPlan();
+        path_tracker.setTrajectory(traj);
+    }
+    path_tracker.start();
+}
+
+void robot::setMissionState(MissionState state)
+{
+    std::cout << "Setting mission state to " << (int)state << std::endl;
+    switch (state) {
+    case MissionState::LOCALIZING:
+        goToRandom();
+        break;
+    case MissionState::EXECUTING:
+        if (missionSetpoints.size() == 0) {
+            setMissionState(MissionState::IDLE);
+            return;
+        }
+        goToNextGoal();
+        break;
+    case MissionState::IDLE:
+        // huzzaaaah!!!!
+        break;
+    }
+    _missionState = state;
+}
+
+void robot::startMission()
+{
+    importMap();
+    setMissionState(MissionState::LOCALIZING);
+}
+
+void robot::stopMission()
+{
+    setMissionState(MissionState::IDLE);
+}
+
 #ifndef DISABLE_OPENCV
 ///toto je calback na data z kamery, ktory ste podhodili robotu vo funkcii initAndStartRobot
 /// vola sa ked dojdu nove data z kamery

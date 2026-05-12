@@ -38,6 +38,7 @@ public:
   LaserData laserData;
   Mapper mapper;
   mclocalizer mcl;
+  std::vector<Point> missionSetpoints;
 
   void initAndStartRobot(std::string ipaddress);
 
@@ -50,10 +51,16 @@ public:
   void plotMap();
   void exportMap();
   void importMap();
+  RobotState getState() const { return _state; }
+  bool isLocalized() const { return _state == RobotState::LOCALIZED; }
+  void startMission();
+  void stopMission();
+
   signals:
   void publishPosition(double x, double y, double z, double omega, double v);
   void publishLidar(const std::vector<LaserData> &lidata);
   void publishHistogram(const std::vector<int>& mHist);
+  void stateChanged(int newState);
 #ifndef DISABLE_OPENCV
   void publishCamera(const cv::Mat &camframe);
 #endif
@@ -74,6 +81,13 @@ private:
 
     Pose _lastMclOdom = {0.0, 0.0, 0.0};
     bool _hasLastMclOdom = false;
+
+    RobotState _state = RobotState::MAPPING;
+    MissionState _missionState = MissionState::IDLE;
+
+    void setMissionState(MissionState state);
+    void goToRandom();
+    void goToNextGoal();
 
     /// toto su vase premenne na vasu odometriu (pouzijem vlastne, diky)
     double x;

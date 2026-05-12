@@ -1,7 +1,9 @@
 #include "mainwindow.h"
 #include <QEvent>
+#include <QListView>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QStringListModel>
 #include "ui_mainwindow.h"
 #include <math.h>
 
@@ -15,6 +17,7 @@ MainWindow::MainWindow(QWidget *parent) :
     on_IPComboBox_currentIndexChanged(0);
 
     ui->setupUi(this);
+    // ui->pushButton_14->setEnabled(false);
     datacounter=0;
 #ifndef DISABLE_OPENCV
     actIndex=-1;
@@ -213,6 +216,10 @@ void  MainWindow::setUiValues(double robotX,double robotY,double robotFi, double
     //_lastMHist = _robot.nav.getLastMHist();
 }
 
+void MainWindow::onRobotStateChanged(int s)
+{
+    // ui->pushButton_14->setEnabled(s == static_cast<int>(RobotState::LOCALIZED));
+}
 
 void MainWindow::on_pushButton_9_clicked() //start button
 {
@@ -223,6 +230,7 @@ void MainWindow::on_pushButton_9_clicked() //start button
     connect(&_robot,SIGNAL(publishPosition(double,double,double,double,double)),this,SLOT(setUiValues(double,double,double,double,double)));
     connect(&_robot,SIGNAL(publishLidar(const std::vector<LaserData> &)),this,SLOT(paintThisLidar(const std::vector<LaserData> &)));
     connect(&_robot, SIGNAL(publishHistogram(const std::vector<int>&)), this, SLOT(onHistogramUpdated(const std::vector<int>&)));
+    connect(&_robot, SIGNAL(stateChanged(int)), this, SLOT(onRobotStateChanged(int)));
 #ifndef DISABLE_OPENCV
     connect(&_robot,SIGNAL(publishCamera(const cv::Mat &)),this,SLOT(paintThisCamera(const cv::Mat &)));
 #endif
@@ -411,6 +419,7 @@ void MainWindow::on_pushButton_10_clicked()
 void MainWindow::on_pushButton_11_clicked()
 {
     _robot.path_tracker.stop();
+    _robot.stopMission();
     _robot.setSpeed(0, 0);
 }
 
@@ -426,15 +435,81 @@ void MainWindow::on_pushButton_13_clicked()
 
 void MainWindow::on_pushButton_14_clicked()
 {
-    Point cur_position = {_robot.odom.getX(), _robot.odom.getY()};
-    Point goal_position = {_setpointX, _setpointY};
+    // Point cur_position = {_robot.odom.getX(), _robot.odom.getY()};
+    // Point goal_position = {_setpointX, _setpointY};
+    // _robot.mapper.plan(cur_position, goal_position);
+    // if (!_robot.mapper.isPlanned()) {
+    //     std::cerr << "Path planning failed!" << std::endl;
+    //     return;
+    // }
+    // std::cout << "Path planning successfull, retrieving path data..." << std::endl;
+    // auto trajectory = _robot.mapper.getPathPlan();
+    // _robot.path_tracker.setTrajectory(trajectory);
+    // _robot.path_tracker.start();
+
+    if (!_robot.isLocalized()) {
+        std::cerr << "Cannot plan: robot is not localized yet. Import map and wait for MCL to converge." << std::endl;
+        ui->setpointLabel->setText("Not localized yet — cannot plan.");
+        return;
+    }
+
+    Pose mclPose = _robot.mcl.getBestPose();
+    Point cur_position  = { mclPose.x, mclPose.y };
+    Point goal_position = { _setpointX, _setpointY };
+
     _robot.mapper.plan(cur_position, goal_position);
     if (!_robot.mapper.isPlanned()) {
         std::cerr << "Path planning failed!" << std::endl;
         return;
     }
-    std::cout << "Path planning successfull, retrieving path data..." << std::endl;
+    std::cout << "Path planning successful, retrieving path data..." << std::endl;
     auto trajectory = _robot.mapper.getPathPlan();
     _robot.path_tracker.setTrajectory(trajectory);
     _robot.path_tracker.start();
+}
+
+void MainWindow::on_setpointYSpinBox_valueChanged(double arg1)
+{
+    double sp_y = arg1;
+    setSetpoint(_setpointX, sp_y);
+}
+
+void MainWindow::on_setpointXSpinBox_valueChanged(double arg1)
+{
+    double sp_x = arg1;
+    setSetpoint(sp_x, _setpointY);
+}
+
+void MainWindow::generateGlobalSetpointListViewContent()
+{
+    missionSetpointEntries.clear();
+    for (int i = 0; i < _robot.missionSetpoints.size(); ++i) {
+        Point sp = _robot.missionSetpoints.at(i);
+        QString text = QString("Setpoint  %1: (%2, %3)").arg(i).arg(sp.x).arg(sp.y);
+        missionSetpointEntries << text;
+    }
+    QStringListModel *model = new QStringListModel(missionSetpointEntries);
+    this->ui->setpointListView->setModel(model);
+}
+
+void MainWindow::on_addGlobalSetpointpushButton_clicked()
+{
+    double sp_x = this->ui->setpointXSpinBox->value();
+    double sp_y = this->ui->setpointYSpinBox->value();
+    Point sp = {sp_x, sp_y};
+    _robot.missionSetpoints.push_back(sp);
+    generateGlobalSetpointListViewContent();
+}
+
+void MainWindow::on_removeSetpointpushButton_clicked()
+{
+    if (_robot.missionSetpoints.size() == 0)
+        return;
+    _robot.missionSetpoints.pop_back();
+    generateGlobalSetpointListViewContent();
+}
+
+void MainWindow::on_startMissionpushButton_clicked()
+{
+    _robot.startMission();
 }
