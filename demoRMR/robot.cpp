@@ -102,8 +102,8 @@ int robot::processThisRobot(const TKobukiData &robotdata)
             odom.compensateLidarScan(copyOfLaserData, xyPointCloud);
             // mapper.update(odom, copyOfLaserData);
             if (_state == RobotState::LOCALIZED) {
-                mapper.update(xyPointCloud);
-                plotMap();
+                //mapper.update(xyPointCloud);
+                //plotMap();
             }
 
             emit publishLidar(copyOfLaserData);
@@ -203,6 +203,8 @@ int robot::processThisRobot(const TKobukiData &robotdata)
             emit publishHistogram(nav.getLastMHist());
         }
     }
+    if(mcl.isLocalized() && datacounter % 40 == 0)
+        odom.setPose(mcl.getBestPose(), robotdata);
 
     if (_missionState == MissionState::LOCALIZING) {
         if (mcl.isLocalized())

@@ -25,8 +25,8 @@ class PathTracker
     bool is_running_ = false;
     std::deque<Point> setpoints;
 
-    const double V_MAX = 0.4;         // [m/s]
-    const double W_MAX = 3.14159 / 5; // [rad/s]
+    const double V_MAX = 0.45;         // [m/s]
+    const double W_MAX = 3.14159 / 2; // [rad/s]
     const double POSITION_EPSILON
         = 0.015; // [m] if position error falls in this range, position is considered reached and controller stops
     const double POSITION_EPSILON_DYNAMIC
@@ -37,7 +37,7 @@ class PathTracker
     const double LOOKAHEAD_DIST = 0.30;               // added for VFH, consider removing
     const double ACCELERATION_MAX = 0.5 * 1;          // [m/s^2]
     const double BRAKING_MAX = 2 * ACCELERATION_MAX;
-    const double ANGULAR_ACCELERATION_MAX = 3 * 3.14; // [rad/s^2]
+    const double ANGULAR_ACCELERATION_MAX = 4 * 3.14; // [rad/s^2]
     const double SAMPLING_PERIOD
         = 0.025; //[s] - we are setting this to a constant, to solve for sudden jumps if frames are missed
 

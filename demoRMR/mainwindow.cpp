@@ -353,7 +353,7 @@ void MainWindow::on_IPComboBox_currentIndexChanged(int index)
         ipaddress = "127.0.0.1";
         break;
     case 1:
-        ipaddress = "192.168.1.11";
+        ipaddress = "192.168.1.12";
         break;
     }
     std::cout << "ipaddress is now: " << ipaddress << std::endl;

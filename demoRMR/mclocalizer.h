@@ -67,8 +67,8 @@ private:
 
     double _injectionRatio = 0.05;
 
-    double _locStdXY = 0.03;
-    double _locStdPhi = 0.03;
+    double _locStdXY = 0.05;
+    double _locStdPhi = 0.05;
 
     int _minParticles = 200;
     int _maxParticles = 1000;
