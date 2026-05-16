@@ -172,10 +172,10 @@ Implementácia rozšíreného algoritmu reaktívnej navigácie **Vector Field Hi
 - `_map_cv` je `cv::Mat` typu `CV_16UC1` o rozmere `(2·MAP_MAX_SIZE/MAP_CELL_SIZE) + 1` (pri 7 m a 0.05 m bunke ide o 281×281 mriežku).
 - Stred mapy `_mid_point` zodpovedá svetovému `(0, 0)`. Konverzia `pointToMapIndex` / `mapIndexToPoint` zaokrúhľuje na bunky.
 - V jednej bunke žijú **rôzne triedy hodnôt** rozdelené prahmi:
-  - `0 … HITS_TO_REGISTER-1` – počet zásahov LiDARu (akumulácia dôkazov),
+  - `0 … HITS_TO_REGISTER-1` – počet zásahov LiDARu (akumulácia registrovaných bodov z LiDAR-u),
   - `HITS_TO_REGISTER = 20` – stabilná prekážka (`ID_OBSTACLE`),
-  - `ID_OBSTACLE_INFLATED = 21` – dilatovaná prekážka,
-  - `ID_START_POS = 22`, `ID_GOAL_POS = 23`, `ID_PLANNING_RANGE_START = 24` – štartové, cieľové a plánovacie vlnoplochy (od 24 vyššie nesú "vzdialenosť od štartu" pre flood-fill).
+  - `ID_OBSTACLE_INFLATED = 21` – zväčšená prekážka,
+  - `ID_START_POS = 22`, `ID_GOAL_POS = 23`, `ID_PLANNING_RANGE_START = 24` – štartové, cieľové a plánovacie vrstvy (od 24 vyššie nesú "vzdialenosť od štartu" pre flood-fill).
 
 ### Mapovanie
 - `init()` – vytvorí prázdnu mriežku.
@@ -188,7 +188,7 @@ Implementácia rozšíreného algoritmu reaktívnej navigácie **Vector Field Hi
 1. `clearPlan()` – pred plánovaním zruší starý záplavový algoritmus aj predošlú trajektóriu.
 2. `inflateObstacles(0.2 m)` – pre každú obsadenú bunku označí jej `2·radius+1` × ... okolie ako `ID_OBSTACLE_INFLATED`. Po zaplavení sa pôvodné prekážky obnovia.
 3. Označia sa `ID_START_POS` (aktuálna pozícia) a `ID_GOAL_POS` (cieľ).
-4. `floodFill(start)` postupne v BFS vrstvách prepisuje voľné bunky hodnotou `level` (začína `ID_PLANNING_RANGE_START`). Iteračná funkcia `floodFillIteration` skončí, akonáhle dorazí na `ID_GOAL_POS`.
+4. `floodFill(start)` postupne v plánovacích vrstvách prepisuje voľné bunky hodnotou `level` (začína `ID_PLANNING_RANGE_START`). Iteračná funkcia `floodFillIteration` skončí, akonáhle dorazí na `ID_GOAL_POS`.
 5. `getKeypoints(goal)` rekonštruuje cestu **spätne od cieľa** k štartu (vždy vyberie suseda s najnižším `level`). Body sa pridávajú do výstupu len v miestach, kde dôjde k zmene smeru – výsledkom je riedka sada zlomových bodov.
 6. Cesta sa otočí (od štartu k cieľu), prevedie na metre cez `mapIndexToPoint` a doplní sa pôvodný cieľ.
 7. `getPathPlan()` vráti hotový plán pre `PathTracker::setTrajectory`.
@@ -252,7 +252,7 @@ Centrálny `QObject`, ktorý vlastní inštancie `Odometry`, `LidarOdometry`, `M
 3. `robotCom.robotStart()` – rozbehne vnútorné vlákna SDK.
 
 ### Callback `processThisLidar`
-Iba uloží surový scan do `copyOfLaserData` a zdvihne `new_lidar_data = true`. Všetka výpočtová logika je presunutá do `processThisRobot`, lebo LiDARové vlákno musí byť rýchle.
+Iba uloží surový scan do `copyOfLaserData` a nastaví `new_lidar_data = true`. Všetka výpočtová logika je presunutá do `processThisRobot`.
 
 ### Callback `processThisRobot` – hlavný "tick"
 1. **Mutex sanity check** – ak je mutex zamknutý, znamená to, že predošlá slučka ešte beží (varovanie do `stderr`).
@@ -268,26 +268,23 @@ Iba uloží surový scan do `copyOfLaserData` a zdvihne `new_lidar_data = true`.
   - Ak je pohyb väčší ako `5 mm` alebo `~0.3°`, beží `updateMotion → updateWeights → resample`.
   - Po konvergencii (`mcl.isLocalized()` & `_state == LOCALIZING`): stav sa zmení na `LOCALIZED`, ciele v `PathTracker` sa transformujú (`transformSetpoints`) a aj samotná `Odometry` sa "teleportuje" na najlepšiu pózu (`odom.setPose`).
   - Otvorí `cv::imshow("MCL", ...)` pre vizualizáciu.
-5. **Reguláia pohybu** (ak `PathTracker` beží):
+5. **Regulácia pohybu** (ak `PathTracker` beží):
   - Z aktuálnej pózy a cieľa sa vypočíta cieľový azimut.
   - VFH+ (`nav.update`) vráti bezpečný smer alebo `nullopt`.
   - `nullopt` → `path_tracker.brake()` (núdzové brzdenie bez vyprázdnenia trajektórie).
   - Inak → `path_tracker.updateVFH(odom, safe_heading)`. Vypočítaný príkaz sa pošle do robota cez `setSpeed` (lineárna rýchlosť v mm/s, uhlová v rad/s).
   - Emituje histogram `publishHistogram` na vykreslenie.
-6. **Stavový stroj misie**:
+6. **Stavový automat misie**:
   - `LOCALIZING`: čaká, kým MCL skonverguje, a pravidelne (každých `40·15` tickov) posiela robot na náhodný cieľ (`goToRandom`), aby sa generoval pohyb potrebný pre konvergenciu MCL.
-  - `EXECUTING`: keď tracker dobehne, popne ďalší cieľ z `missionSetpoints` (`goToNextGoal`). Tu sa vyvolá `mapper.plan(...)`, výsledná trajektória sa odovzdá trackeru. Ak plánovanie zlyhá, použije sa hrubý cieľ "po čiare".
-  - Po vyprázdnení sa prejde do `IDLE`.
+  - `EXECUTING`: keď tracker dobehne, popne ďalší cieľ z `missionSetpoints` (`goToNextGoal`). Tu sa vyvolá `mapper.plan(...)`, výsledná trajektória sa odovzdá trackeru. Ak plánovanie zlyhá, použije sa reaktívna navigácia.
+  - Po vyprázdnení zoznamu setpointov sa prejde do `IDLE`.
 7. **UI synchronizácia** – každý piaty tick emituje `publishPosition` so škálovanými hodnotami (cm, °), aby sa neblikalo.
-8. **Fallback príkazy rýchlosti** – ak `useDirectCommands == 0` a UI nastavil len `forwardspeed/rotationspeed`, odošlú sa do robota cez `setRotationSpeed / setTranslationSpeed / setArcSpeed`.
 
 ### Pomocné metódy
-- `setSpeedVal(v, w)` – uloží do interných premenných a označí, že príkaz nie je priamy (čaká, kým ho odošle hlavná slučka).
-- `setSpeed(v, w)` – okamžite odošle príkaz cez `robotCom` a označí `useDirectCommands = 1`. Rozhoduje medzi `setRotationSpeed`, `setTranslationSpeed`, `setArcSpeed` v závislosti od toho, ktorá zložka je nulová (`setArcSpeed(forw, forw/rots)` udáva *polomer*).
 - `plotMap()` – cez OpenCV vykreslí prefiltrovanú binárku mapy.
 - `exportMap()` / `importMap()` – zápis `map.bmp` a načítanie + inicializácia MCL + prechod do stavu `LOCALIZING`.
 - `goToRandom()` – náhodný cieľ z intervalu [0, 7] m × [0, 7] m, klasický single-setpoint.
-- `goToNextGoal()` – zoberie prvý cieľ z `missionSetpoints`, zavolá plánovač a spustí trajektóriu.
+- `goToNextGoal()` – zoberie prvý cieľ z `missionSetpoints`, zavolá plánovač a spustí pohyb po naplánovanej trajektórii.
 - `setMissionState(state)` – riadi prechody misijného stavu (idle/lokalizovať/vykonávať).
 - `startMission()` – `importMap() + setMissionState(LOCALIZING)`.
 - `stopMission()` – `setMissionState(IDLE)`.
@@ -306,7 +303,7 @@ Iba uloží surový scan do `copyOfLaserData` a zdvihne `new_lidar_data = true`.
 Hlavné okno aplikácie. Drží jednu inštanciu `robot _robot`, slot funkcie pre signály z robota, vlastnú vizualizáciu LiDARu / setpointov / VFH histogramu a obsluhu gombíkov.
 
 ### Súradnicové sústavy
-- `globalToRobotFrame(globalPoint)` prevedie svetový bod do **robotom-centrickej rotovanej** sústavy. `rot = -odom.getRot() + π/2`, lebo UI vykresľuje X smerom hore.
+- `globalToRobotFrame(globalPoint)` prevedie svetový bod do **robot-centrickej rotovanej** sústavy. `rot = -odom.getRot() + π/2`, lebo UI vykresľuje X smerom hore.
 - `widgetXYtoWorldXY(x, y)` je inverzná operácia – z kliku do widgetu vypočíta svetovú pozíciu (pomocou aktuálnej pózy odometrie).
 - `setSetpoint(x, y)` zobrazí v UI label "Setpoint: (x, y)" a uloží do `_setpointX/Y`.
 
@@ -330,7 +327,7 @@ Hlavné okno aplikácie. Drží jednu inštanciu `robot _robot`, slot funkcie pr
 
 | Tlačidlo | UI text | Slot | Akcia |
 |---|---|---|---|
-| `pushButton_9` | **Connect** | `on_pushButton_9_clicked` | Vypne sám seba, prepojí signály robota so slot-mi MainWindow, zavolá `_robot.initAndStartRobot(ipaddress)` a pripojí joystick (`QJoysticks::axisChanged`) – os 1 ovláda lineárnu rýchlosť, os 0 uhlovú. |
+| `pushButton_9` | **Connect** | `on_pushButton_9_clicked` | Vypne sám seba, prepojí signály robota so slot-mi MainWindow, zavolá `_robot.initAndStartRobot(ipaddress)` |
 | `pushButton_2` | **Forward** | `on_pushButton_2_clicked` | `_robot.setSpeed(500, 0)` – priamy príkaz 0.5 m/s vpred. |
 | `pushButton_3` | **Back** | `on_pushButton_3_clicked` | `setSpeed(-250, 0)` – 0.25 m/s vzad. |
 | `pushButton_6` | **Left** | `on_pushButton_6_clicked` | `setSpeed(0, π/2)` – rotácia doľava. |
@@ -358,7 +355,7 @@ Finálny vizuál vyzerá nasledovne
 ## 11. Kompletný tok aplikácie (end-to-end)
 
 1. **Spustenie**: `main.cpp` vytvorí `MainWindow`. Konštruktor pripraví UI, predvyplní IP (`on_IPComboBox_currentIndexChanged(0)`), inštaluje event-filter na widget vizualizácie.
-2. **Connect (`pushButton_9`)**: užívateľ stlačí tlačidlo. Naviažu sa signály z `robot` na slot-y MainWindow, zavolá sa `_robot.initAndStartRobot(ip)` (zaregistrujú sa callbacky pre Kobuki/LiDAR/kameru, štart vlákien). Naštartuje sa aj joystick.
+2. **Connect (`pushButton_9`)**: užívateľ stlačí tlačidlo. Naviažu sa signály z `robot` na slot-y MainWindow, zavolá sa `_robot.initAndStartRobot(ip)` (zaregistrujú sa callbacky pre Kobuki/LiDAR/kameru, štart vlákien).
 3. **Mapovacia fáza** (`RobotState::MAPPING`):
   - Robot je ovládaný buď manuálne (gombíky Forward/Back/Left/Right, joystick), alebo automatickými cieľmi (Start Movement po kliknutí v okne / SpinBoxoch).
   - Pri každom ticku `processThisRobot` aktualizuje odometriu, kompenzuje LiDAR scan, ale **mapu zatiaľ neaktualizuje** (lebo nie je `LOCALIZED`). Užívateľ však môže prejsť okolo mapovaného priestoru manuálne – tu je trochu nekonzistencia s konvenciou stavov, mapper update sa v praxi rozbieha až po prvom načítaní mapy.
